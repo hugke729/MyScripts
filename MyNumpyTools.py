@@ -109,6 +109,16 @@ def fillnan_pad(x, axis=0):
     return np.array(x)
 
 
+def fillnan_pad3d(x):
+    """Replace NaN values with last finite value"""
+
+    # Have to use row if we want to take advantage of pandas' method
+    for i, xi in enumerate(x):
+        x[i, ...] = np.array(DataFrame(xi).fillna(method='pad', axis=1))
+
+    return np.array(x)
+
+
 def change_wrap(x, wrap_in, wrap_out):
     """Change angle wrapping limits
 
