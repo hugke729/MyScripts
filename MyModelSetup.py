@@ -10,6 +10,7 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import convolve
 from scipy.ndimage.filters import gaussian_filter
 import xarray as xr
+from seawater.eos80 import ptmp
 from MyInterp import interp_weights, interpolate, get_springs, inpaint_nans
 from MyNumpyTools import change_wrap, fillnan_pad, uneven_2D_convolve
 
@@ -260,6 +261,9 @@ def project_quarter_degree_climatology(
     z_in = np.genfromtxt(depth_fname, delimiter=',')
     S = interpolate_in_vertical(S_xy, z_in, z_out)
     T = interpolate_in_vertical(T_xy, z_in, z_out)
+
+    # Convert in situ temperature to potential
+    T = ptmp(S, T, z_out[np.newaxis, np.newaxis, :])
 
     return S, T
 
