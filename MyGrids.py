@@ -327,6 +327,7 @@ class Grid:
     def mesh(self):
         self.Xc, self.Yc = np.meshgrid(self.xc, self.yc)
         self.Xf, self.Yf = np.meshgrid(self.xf, self.yf)
+        self.dX, self.dY = np.meshgrid(self.dx, self.dy)
 
     def to_kms(self):
         """Hack to get all grid objects in km as well"""
