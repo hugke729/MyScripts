@@ -36,13 +36,21 @@ def dx_to_xg(dx):
 def create_size_header(code_dir, n):
     """Create SIZE.h in ../code/ directory
 
+    Inputs
+    ------
+    code_dir : str
+        full path to model's code directory
+    n : dict
+        key, value pairs for the variable values in size.h
+
     SIZE_start.h and SIZE_end.h are files in ~/mitgcm/other
     They contain the start and end of SIZE.h that remains constant.
     Only need to create middle bit
 
     Create all the lines of the form
     '     &           nPx =    1,'
-    and write to SIZE_middle.h"""
+    and write to SIZE_middle.h
+    """
 
     # Ensure code_dir ends with slash
     if not code_dir.endswith('/'):
@@ -64,6 +72,9 @@ def create_size_header(code_dir, n):
         for file_i in files_in:
             with open(file_i, 'r') as infile:
                 outfile.write(infile.read())
+
+    # Remove temporary middle file
+    os.remove(code_dir + 'SIZE_middle.h')
 
 
 def get_run_settings(output_file):
