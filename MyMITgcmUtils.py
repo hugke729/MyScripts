@@ -1,6 +1,8 @@
 import numpy as np
+import numpy.ma as ma
 import os
 from subprocess import check_output
+from scipy import ndimage as nd
 
 
 def write_for_mitgcm(filename_in, array_in):
@@ -9,6 +11,13 @@ def write_for_mitgcm(filename_in, array_in):
     # big endian format.
     # Result is written on file_in
 
+    # Ensure no NaN or masked values
+    if ma.isMaskedArray(array_in):
+        array_in = ma.filled(array_in, np.nan)
+
+    if np.any(np.isnan(array_in)):
+        array_in = remove_nans_laterally(array_in)
+
     #  Flatten array_in, convert to Fortran order, and ensure correct byte order
     array_in = array_in.reshape(array_in.size, order='F')
     if sys.byteorder == 'little':
@@ -16,6 +25,35 @@ def write_for_mitgcm(filename_in, array_in):
 
     with open(filename_in, 'wb') as f:
         f.write(array_in)
+
+
+def remove_nans_laterally(array):
+    """Get rid of NaNs by copying nearest adjacent value or column for 3D
+
+    Assumes first two dimensions of array are x and y
+
+    Idea from stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
+    """
+    # Nx, Ny = array.shape[:2]
+
+    if array.ndim == 2:
+        array = array[..., np.newaxis]
+
+    nans = np.isnan(array[..., 0])
+
+    # for xi, yi in np.argwhere(nans):
+    #     array[xi, yi, :] =
+
+    inds = nd.distance_transform_edt(
+        nans, return_distances=False, return_indices=True)
+
+    for i, level in enumerate(np.rollaxis(array, 2)):
+        array[..., i] = array[..., i][tuple(inds)]
+
+    # Remove introduced dimension if necessary
+    array = array.squeeze()
+
+    return array
 
 
 def xc_to_xg(xc):
