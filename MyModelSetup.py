@@ -492,7 +492,7 @@ def deepen_nares_st(m, X_c, Y_c, depth):
 
     # Using a kernel with specified width
     smooth_kernel = 100  # Distance in kilometres
-    x, y = X_c[0, :], Y_c[:, 0]
+    x, y = X_c[:, 0], Y_c[0, :]
     x_km, y_km = x.max()/1e3, y.max()/1e3
 
     # Set Nx and Ny for convolution (scale down from number of kms for speed)
@@ -504,7 +504,7 @@ def deepen_nares_st(m, X_c, Y_c, depth):
     # Create 2D kernel
     kernel = np.ones((smooth_kernel, smooth_kernel))
     wts = uneven_2D_convolve(
-        inside_inds.T, x, y, kernel, Nx=Nx, Ny=Ny)/kernel.size
+        inside_inds, x, y, kernel, Nx=Nx, Ny=Ny)/kernel.size
 
     # Calculate new depth by setting 600 m as depth of Nares St and smoothly
     # converting back to real bathymetry

@@ -191,8 +191,8 @@ def uneven_2D_convolve(in1, x1, y1, in2, Nx=1000, Ny=1000):
     tmp_y1 = np.linspace(y1.min(), y1.max(), Ny)
 
     # Create meshes
-    tmp_X1, tmp_Y1 = np.meshgrid(tmp_x1, tmp_y1)
-    X1, Y1 = np.meshgrid(x1, y1)
+    tmp_X1, tmp_Y1 = np.meshgrid(tmp_x1, tmp_y1, indexing='ij')
+    X1, Y1 = np.meshgrid(x1, y1, indexing='ij')
 
     # Interpolate in1 and in2 to regular grid
     tmp_in1 = RegularGridInterpolator((x1, y1), in1)((tmp_X1, tmp_Y1))
@@ -201,13 +201,6 @@ def uneven_2D_convolve(in1, x1, y1, in2, Nx=1000, Ny=1000):
     tmp_conv = convolve(tmp_in1, in2, mode='same')
 
     # Convert convolution result back to original grid
-    # Not sure why transpose needed, but seems to do the job
-    conv = RegularGridInterpolator((tmp_x1, tmp_y1), tmp_conv.T)((X1, Y1))
-
-    # Alternatively try both transposed and not transposed
-    # try:
-    #     conv = RegularGridInterpolator((tmp_x1, tmp_y1), tmp_conv.T)((X1, Y1))
-    # except ValueError:
-    #     conv = RegularGridInterpolator((tmp_x1, tmp_y1), tmp_conv)((X1, Y1))
+    conv = RegularGridInterpolator((tmp_x1, tmp_y1), tmp_conv)((X1, Y1))
 
     return conv
