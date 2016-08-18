@@ -311,7 +311,9 @@ class Grid:
         x_attrs = sort_attrs('x')
         y_attrs = sort_attrs('y')
         z_attrs = sort_attrs('z')
-        attr_table = '\n'.join([s for s in [x_attrs, y_attrs, z_attrs]])
+        geo_attrs = sort_attrs('lon') + sort_attrs('lat')
+        attr_table = '\n'.join(
+            [s for s in [x_attrs, y_attrs, z_attrs, geo_attrs]])
         return 'Grid object with attributes: \n' + attr_table
 
     def calc_faces(self, x0, y0):

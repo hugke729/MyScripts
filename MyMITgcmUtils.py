@@ -3,6 +3,8 @@ import numpy.ma as ma
 import os
 from subprocess import check_output
 from scipy import ndimage as nd
+from MITgcmutils import rdmds
+from MyGrids import Grid
 
 
 def write_for_mitgcm(filename_in, array_in):
@@ -181,3 +183,17 @@ def get_run_settings(output_file):
     D['dumpVec_hr'] = D['dumpVec']*D['deltaT']/3600
     D['dumpVec_day'] = D['dumpVec']*D['deltaT']/86400
     return D
+
+
+def get_grid(run_dir):
+    """Create a Grid object from model's output grid files
+
+    Inputs
+    ------
+    run_dir : str
+        Full path to model's run directory
+    """
+    dx = rdmds(run_dir + 'DXG*')[0, :]
+    dy = rdmds(run_dir + 'DYG*')[:, 0]
+
+    return Grid(dx, dy)
