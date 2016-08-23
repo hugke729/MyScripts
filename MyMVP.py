@@ -7,7 +7,8 @@ import numpy.ma as ma
 import scipy.signal as signal
 import re
 from time import strptime
-from scipy.stats import binned_statistic
+from scipy.stats import binned_statistic, mode
+from scipy.ndimage.measurements import label
 import pickle
 import matplotlib.pyplot as plt
 import seawater.eos80 as sw
@@ -36,6 +37,7 @@ from vertmodes import vertModes
 #   |  |- calc_eps
 #   |  |   |- calc_Lt
 #   |  |- calc_eps_avg
+#   |  |- calc_modes
 #   |  |- bin_fields
 #   |      |- select_downcast
 #   |-interp_missing_latlon
@@ -111,8 +113,10 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
         z_bins = np.arange(0, 250) if z_bins is None else z_bins
         binned = bin_fields(data, z_bins, mask_nans)
         binned['z_bins'] = z_bins
-        binned['c0'], binned['c1'], binned['c2'] = calc_mode_velocities(
-            binned['N2'], xyt['bottom'], z_bins)
+        hori, vert, c = calc_modes(binned['N2'], xyt['bottom'], z_bins)
+        binned['hori_0'], binned['hori_1'], binned['hori_2'] = hori.T
+        binned['vert_0'], binned['vert_1'], binned['vert_2'] = vert.T
+        binned['c0'], binned['c1'], binned['c2'] = c
 
         return xyt, data, binned
     else:
@@ -149,7 +153,8 @@ def concatenate_binned_arrays(
     # Preallocate the dictionary to hold concatenated grids with NaNs
     grid_all = {}
     fields = ['p', 'z', 'SV', 'T', 'C', 'S', 'rho', 'prho', 'theta',
-              'ANGL1', 'ANLG2', 'ANLG3', 'N2', 'L_T', 'eps']
+              'ANGL1', 'ANLG2', 'ANLG3', 'N2', 'L_T', 'eps',
+              'hori_0', 'hori_1', 'hori_2', 'vert_0', 'vert_1', 'vert_2']
     scalar_fields = ['eps_zavg', 'c0', 'c1', 'c2']
     xyt_fields = ['bottom', 'cast', 'date', 'lat', 'lon', 'time']
 
@@ -185,6 +190,7 @@ def concatenate_binned_arrays(
             # Skip this cast. If the try suite didn't work, it's very likely
             # the cast had something wrong, such as no downcast data
             bad_casts += [i]
+            print(' Bad cast: ' + str(cast_no))
 
     # Remove empty spaces left by bad casts
     for field in (fields + scalar_fields):
@@ -211,7 +217,6 @@ def concatenate_binned_arrays(
         grid_all['dist_flat'] = flatten_to_line(
             grid_all['lon'], grid_all['lat'])/1000  # kilometres
 
-        print(grid_all['dist_flat'])
         # Then, reorder so that distances increase monotonically
         dist_order = np.argsort(grid_all['dist_flat'])
         for key, value in grid_all.items():
@@ -522,8 +527,8 @@ def calc_eps_avg(eps, z):
     return eps_zavg
 
 
-def calc_mode_velocities(N2, bottom_depth, z_bins):
-    """Wave velocity of first three modes from vertical mode decomposition"""
+def calc_modes(N2, bottom_depth, z_bins):
+    """Wave velocity and structure of first three modes"""
 
     dz = np.mean(np.diff(z_bins))
 
@@ -531,17 +536,23 @@ def calc_mode_velocities(N2, bottom_depth, z_bins):
     Nz = (bottom_depth/dz).astype(int)
     N2 = N2[:Nz]
 
-    # Find index before first finite value and index of last finite value
-    # Assuming no NaNs in between first and last finite value
-    # Hopefully a reasonable assumption
-    start_ind, end_ind = np.where(np.abs(np.diff(nan_or_masked(N2))) == 1)[0]
+    # Find indices of start and end of finite values
+    finite_vals = nan_or_masked(N2) == 0
+    labels = label(finite_vals)[0]
+    main_data = np.where(labels == mode(labels[finite_vals]))[1]
+    start_ind, end_ind = main_data[0], main_data[-1]
 
     # Fill in NaN values with start or end values
-    N2[:start_ind + 1] = N2[start_ind + 1]
+    N2[:start_ind] = N2[start_ind]
     N2[end_ind + 1:] = N2[end_ind]
-    c = vertModes(N2, dz)[2]  # Velocities for all modes
 
-    return c[:3]
+    # Preallocate arrays for horizontal and vertical structure
+    hori = np.full((len(z_bins) - 1, 3), np.nan)
+    vert = hori.copy()
+
+    hori[:len(N2), :], vert[:len(N2), :], c, _ = vertModes(N2, dz, 3)
+
+    return hori, vert, c[:3]
 
 
 def bin_fields(D, z_bins, mask_nans=False):
