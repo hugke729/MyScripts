@@ -20,11 +20,13 @@ from MyInteractive import disp_latlon
 from IPython.display import Markdown, display
 from MyMVP import loadMVP_m1
 from MyCTD import get_xyt, get_theta_S_sigma_z, get_velocity_profile, calc_N2
+from MyInterp import inpaint_nans
 
 
 # Versatile contour plot
 def contourZ(ax, X, Y, Z, sigma, depth, clim, label,
-             cmap=cmap_cold(reverse=True), fine_rho=False, direc=1):
+             cmap=cmap_cold(reverse=True), fine_rho=False, direc=1,
+             extrapolate=False):
     """Create a contour plot of Z(X, Y) overlaid with density contours
 
     Inputs
@@ -40,8 +42,19 @@ def contourZ(ax, X, Y, Z, sigma, depth, clim, label,
     cmap: which colourmap to use (defaults to cold (dark blue to grey))
     fine_rho: add 0.1 kg/m3 contours if True
     direc: flip x axis if direc is -1
+    extrapolate: whether to extrapolate missing density and 'Z' values
     """
-    # Mask NaNs if not already masked
+
+    # Fill any masked values with NaNs
+    Z[Z.mask] = np.nan
+    sigma[sigma.mask] = np.nan
+
+    if extrapolate:
+        leave_mask = Y[:, np.newaxis] > np.array(depth)[np.newaxis, :]
+        Z = inpaint_nans(Z, leave_mask=leave_mask)
+        sigma = inpaint_nans(sigma, leave_mask=leave_mask)
+
+    # Mask NaNs now that interpolation is completed
     X, Y, Z, sigma = map(ma.masked_invalid, [X, Y, Z, sigma])
 
     # Contour plot options
@@ -100,7 +113,7 @@ def contourZ(ax, X, Y, Z, sigma, depth, clim, label,
 
 # Pcolor plot for ADCP data
 def adcp_pcolor(data, is_long_section=False, ax=None, cross_vel='V',
-                add_quiver=False, **pcolor_kwargs):
+                add_quiver=False, extrapolate=False, **pcolor_kwargs):
     """Plot smoothed ADCP data
 
     Inputs
@@ -111,6 +124,7 @@ def adcp_pcolor(data, is_long_section=False, ax=None, cross_vel='V',
     cross_vel: component to plot for cross sound transects ('U' or 'V')
     pcolor_kwargs: dict containing other options for pcolor plot
     add_quiver: bool
+    extrapolate: bool
     """
     # Get current axis unless axis is given
     ax = plt.gca() if ax is None else ax
@@ -129,10 +143,22 @@ def adcp_pcolor(data, is_long_section=False, ax=None, cross_vel='V',
         vel = data['vel_s'][..., 0].T
         label = 'Eastward velocity'
 
+    if extrapolate:
+        vel[vel.mask] = np.nan
+        # For some reason depths are 12.37, 16.37, 20.37, ...
+        dep = np.insert(data['dep'], 0, (np.r_[0, 4, 8] + 0.37))
+        Nx = len(data['depth_s'])
+        vel = np.insert(vel, np.r_[0, 1, 2], np.nan, axis=0)
+        leave_mask = dep[:, np.newaxis] > data['depth_s'][np.newaxis, :]
+        vel = inpaint_nans(vel, leave_mask=leave_mask)
+        vel = ma.masked_invalid(vel)
+    else:
+        dep = data['dep']
+
     pcol_opts = dict(rasterized=True, cmap=cm.RdBu_r, vmin=-0.5, vmax=0.5)
     pcol_opts = merge_dicts(pcol_opts, pcolor_kwargs)
     print(pcol_opts)
-    pcm = ax.pcolormesh(data['dist_s'] / 1e3, data['dep'], vel, **pcol_opts)
+    pcm = ax.pcolormesh(data['dist_s'] / 1e3, dep, vel, **pcol_opts)
     cbar = plt.colorbar(pcm, ax=ax, format='%2.2f', orientation='vertical',
                         fraction=0.08, shrink=1)
     fix_colorbar(cbar)
@@ -231,7 +257,7 @@ def add_water_masses(ax):
     # Add legend below plot
     L, B, W, H = pos(ax)
     ax_leg = ax.get_figure().add_axes((L, 0.01, W, 0.06))
-    leg = ax_leg.legend(patches, names, ncol=2, frameon=False)
+    ax_leg.legend(patches, names, ncol=2, frameon=False)
     ax_leg.axis('off')
 
     plt.draw()
@@ -498,7 +524,7 @@ def plot_profiles(cast_nos, ctd_or_mvp='mvp', raw=False, figsize=None,
 
 
 def plot_section(name, limits, mvp_quantity='theta', figsize=None,
-                 cross_vel='V', add_quiver=False):
+                 cross_vel='V', add_quiver=False, extrapolate=False):
     """Put together T contour, velocity, T-S diagram and map plots
 
     mvp_quantity can be 'theta' or 'eps'
@@ -549,7 +575,7 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
     # Plot temperature contour
     cax, cbar = contourZ(
         ax_mvp, X, Z, quantity, sigma, D['bottom'], clim, ylabel,
-        fine_rho=False, direc=direc)
+        fine_rho=False, direc=direc, extrapolate=extrapolate)
     ax_mvp.set(xlim=xlim, ylim=ylim)
 
     # T-S plot
@@ -566,7 +592,8 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
     data = pickle.load(open('/home/hugke729/PhD/Data/Shipboard/ADCP/processed/' +
                             name + '.p', 'rb'))
     adcp_pcolor(data, is_long_section=is_long_section, ax=ax_adcp,
-                cross_vel=cross_vel, add_quiver=add_quiver)
+                cross_vel=cross_vel, add_quiver=add_quiver,
+                extrapolate=extrapolate)
     ax_adcp.set(ylim=ylim, xlim=xlim)
     ax_adcp.contour(X, Z, sigma, np.arange(22, 30, 0.25), linewidths=0.75,
                     colors='grey')

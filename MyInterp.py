@@ -420,35 +420,34 @@ def inpaint_nans(A, XY_tuple=None, leave_mask=None, springs=None,
     A : 2D array without NaNs
     """
 
+    def print_progress(step):
+        if update_progress:
+            print(step, flush=True)
+
     # Copy A just in case
     A = A.copy()
 
     # Get N_springs x 4 array describing (x0, y0, x1, y1) of each spring
-    if update_progress:
-        print('Progress of inpaint_nans:', flush=True)
+    print_progress('Progress of inpaint_nans:')
 
     if springs is None:
-        print('    Calculating springs', flush=True)
+        print_progress('    Calculating springs')
         springs = get_springs(A, leave_mask, plot_springs=False,
                               include_diagonals=include_diagonals)
 
     # Get (row, column) indices of NaN locations
-    if update_progress:
-        print('    Finding NaNs', flush=True)
+    print_progress('    Finding NaNs')
     nan_inds = np.argwhere(np.isnan(A))
 
     # Determine matrix based on the springs and values in u
-    if update_progress:
-        print('    Setting up matrix equation', flush=True)
+    print_progress('    Setting up matrix equation')
     A_mat, B_mat = create_matrix_lhs_rhs(A, springs, nan_inds)
 
-    if update_progress:
-        print('    Solving matrix equation', flush=True)
+    print_progress('    Solving matrix equation')
     # Solve matrix equation in least-squares sense
     nan_replace = lsqr(A_mat, B_mat)[0]
 
-    if update_progress:
-        print('    Finishing', flush=True)
+    print_progress('    Finishing')
     # Replace NaNs with solution
     # Not sure why I have to have to invert the sign
     A[np.isnan(A)] = -nan_replace
