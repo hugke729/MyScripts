@@ -233,13 +233,13 @@ def smooth_bump(x, H, ends=0.2, mid=0.2):
     """
     Create a smooth bump of height H with flat bits in the middle and at the
     ends. ends, and mids are fractions of x containing each of the parts
-    of the bump
-
-              .-------.
-             /         \
-    ........-           -.........
-    |  end |   | mid |   |  end  |
-
+    of the bump::
+        
+                  .-------.
+                 /         \\
+        ........-           -.........
+        |  end |   | mid |   |  end  |
+    
     The bumps are half of a sinusoid
     """
     d = x[-1]
