@@ -12,7 +12,7 @@ from scipy.ndimage.filters import gaussian_filter
 import xarray as xr
 from seawater.eos80 import ptmp
 from MyInterp import interp_weights, interpolate, get_springs, inpaint_nans
-from MyNumpyTools import change_wrap, fillnan_pad, uneven_2D_convolve
+from MyNumpyTools import change_wrap, fillnan_pad, uneven_2D_convolve, cosd
 
 
 def setup_map(model_name, regenerate=False):
@@ -44,7 +44,7 @@ def setup_map(model_name, regenerate=False):
                 projection='aeqd',
                 lat_0=76.5,
                 lon_0=260,
-                width=3e6,
+                width=3.4e6,
                 height=2e6,
                 resolution='i')
             pickle.dump(m, open(fname, 'wb'))
@@ -53,7 +53,7 @@ def setup_map(model_name, regenerate=False):
     else:
         print('Try different model_name')
 
-    x0, x1, y0, y1 = [x*1e3 for x in [530, 3000, 0, 2000]]
+    x0, x1, y0, y1 = [x*1e3 for x in [750, 3400, 0, 2000]]
 
     return m, (x0, x1, y0, y1)
 
@@ -515,7 +515,7 @@ def deepen_nares_st(m, X_c, Y_c, depth):
     return new_depth
 
 
-def project_tide(X_c, Y_c, m, constituents):
+def project_tide(X_c, Y_c, m, constituents, return_velocity=False):
     """
     Inputs
     ------
@@ -525,13 +525,17 @@ def project_tide(X_c, Y_c, m, constituents):
         Basemap associated with X_c and Y_c
     constituent : str or list of strings
         Any of S2, 01, N2, M4, K1
+    return_velocity : bool
+        Whether to return barotropic velocities
 
     Returns
     -------
     amp : 2D array or list of 2D arrays
-        Tidal amplitude for given constituent (metres)
+        Tidal amplitude for given constituents (metres)
     phase : 2D array or list of 2D arrays
-        Tidal phase in degrees for given constituent
+        Tidal phase in degrees for given constituents
+    U, V : 2D arrays
+        Velocities for given constituents
     """
 
     tide_data_dir = '/home/hugke729/Programs/WebTide/data/arctic9/'
@@ -548,6 +552,8 @@ def project_tide(X_c, Y_c, m, constituents):
     # Create blank list to append results to
     amp = []
     phase = []
+    u, u_phase = [], []
+    v, v_phase = [], []
 
     # Ensure constituents is a list
     if type(constituents) is str:
@@ -559,33 +565,62 @@ def project_tide(X_c, Y_c, m, constituents):
         amp_node, phase_node = np.genfromtxt(
             constituent_file, skip_header=3, usecols=[1, 2], unpack=True)
 
-        # Project to model grid
-        amp += [interpolate(amp_node, vtx, wts, np.nan).reshape(X_c.shape)]
+        if return_velocity:
+            vel_file = constituent_file.replace('s2c', 'v2c')
+            no, u_a, u_p, v_a, v_p = np.genfromtxt(
+                vel_file, skip_header=3, unpack=True)
 
-        # Do phase interpolation multiple times with different wrapping points.
-        # Then convert back to original wrapping.
-        # Then take median
-        wraps = np.r_[0:360:7j][1:]
-        phases = np.zeros((X_c.shape[0], X_c.shape[1], len(wraps)))
-        for i, wrap_out in enumerate(wraps):
-            phase_nodes = change_wrap(phase_node, 180, wrap_out)
-            phases_i = interpolate(
-                phase_nodes, vtx, wts, np.nan).reshape(X_c.shape)
-            phases[..., i] = change_wrap(phases_i, wrap_out, 180)
+        def tmp_interpolate(X):
+            return interpolate(X, vtx, wts, np.nan).reshape(X_c.shape)
+
+        def interpolate_phase(X):
+            """
+            Do phase interp multiple times with different wrapping points.
+            Then convert back to original wrapping.
+            Then take median
+            """
+            filterwarnings('ignore', 'All-NaN slice*.')
+            wraps = np.r_[0:360:7j][1:]
+            phases = np.zeros((X_c.shape[0], X_c.shape[1], len(wraps)))
+            for i, wrap_out in enumerate(wraps):
+                phase_nodes = change_wrap(X, 180, wrap_out)
+                phases_i = tmp_interpolate(phase_nodes)
+                phases[..., i] = change_wrap(phases_i, wrap_out, 180)
+
+            return np.nanmedian(phases, axis=-1)
+
+        if return_velocity:
+            u += [tmp_interpolate(u_a)]
+            u_phase += [interpolate_phase(u_p)]
+            v += [tmp_interpolate(v_a)]
+            v_phase += [interpolate_phase(v_p)]
+
+        # Project to model grid
+        amp += [tmp_interpolate(amp_node)]
 
         # Add current constituent to list
-        filterwarnings('ignore', 'All-NaN slice*.')
-        phase += [np.nanmedian(phases, axis=-1)]
+        phase += [interpolate_phase(phase_node)]
+
+    # Sum up velocities to get U0 and V0
+    U0, V0 = np.zeros_like(X_c), np.zeros_like(X_c)
+    for u_i, u_i_phase, v_i, v_i_phase in zip(u, u_phase, v, v_phase):
+        # Using cos here as that is what's used in SSHR package
+        U0 += u_i*cosd(u_i_phase)
+        V0 += v_i*cosd(v_i_phase)
 
     # Convert list to array if appropriate
     if len(amp) == 1:
         amp, phase = amp[0], phase[0]
 
-    return amp, phase
+    if return_velocity:
+        return amp, phase, U0, V0
+    else:
+        return amp, phase
 
 
 def project_and_extrapolate_tide(
-        X_c, Y_c, m, constituents, leave_mask=None, update_progress=1):
+        X_c, Y_c, m, constituents, leave_mask=None, update_progress=1,
+        return_velocity=False):
     """
     Project tidal amplitude and phases for given constituents onto new grid
 
@@ -606,6 +641,8 @@ def project_and_extrapolate_tide(
         0 = no updates
         1 = update after each constituent
         2 = update all steps of inpaint_nans
+    return_velocity : bool
+        Whether to return velocities corresponding to time 0
 
     Returns
     -------
@@ -613,8 +650,11 @@ def project_and_extrapolate_tide(
         Tidal amplitude for given constituent (metres)
     phase : 2D array or list of 2D arrays
         Tidal phase in degrees for given constituent
+    U0, V0 : 2D arrays
+        Barotropic tidal current velocities
     """
-    A, P = project_tide(X_c, Y_c, m, constituents)
+    A, P, U0, V0 = project_tide(X_c, Y_c, m, constituents,
+                                return_velocity=True)
 
     # Ensure A and P are within a list even if only one constituent
     if type(A) is not list:
@@ -640,8 +680,15 @@ def project_and_extrapolate_tide(
         A[i] = inpaint_nans(A_i, (X_c, Y_c), **inpaint_opts)
         P[i] = inpaint_nans(P_i, (X_c, Y_c), **inpaint_opts)
 
+    if return_velocity:
+        U0 = inpaint_nans(U0, (X_c, Y_c), **inpaint_opts)
+        V0 = inpaint_nans(V0, (X_c, Y_c), **inpaint_opts)
+
     # Return A and P to array if only one constituent given
     if len(A) == 1:
         A, P = A[0], P[0]
 
-    return A, P
+    if return_velocity:
+        return A, P, U0, V0
+    else:
+        return A, P
