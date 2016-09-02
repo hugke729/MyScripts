@@ -5,6 +5,7 @@ from numpy import logical_and as l_and
 from numpy import cos, pi, atleast_1d
 from sympy import Symbol, nsolve
 from scipy.ndimage import label
+from scipy.signal import convolve
 from scipy.stats import mode
 from MyNumpyTools import nan_or_masked
 
@@ -229,17 +230,109 @@ def remove_unconnected_basins(depth):
     return depth
 
 
+def find_dead_ends(arr):
+    """Find parts of an array that are "dead-ends"
+
+    dead-ends are defined as connected parts only one grid cell wide
+
+    Inputs
+    ------
+    arr : 2D boolean array
+        True where 'fluid', False where 'land'
+
+    Returns
+    -------
+    dead_ends_arr : 2D boolean array
+        Same size as input array and True where cells are part of dead end
+    """
+
+    # Keep a copy to compare against and ensure were not modifying the input
+    orig_arr = arr.copy()
+    arr = arr.copy()
+
+    # Check for dead ends, then remove those dead ends, then check again
+    # Necessary for dead-ends with corners
+    dead_ends_remain = True
+    while dead_ends_remain:
+        inds = find_dead_ends_once(arr)
+        if inds.sum() > 0:
+            arr[inds] = False
+        else:
+            dead_ends_remain = False
+
+    dead_end_inds = orig_arr - arr
+
+    return dead_end_inds
+
+
+def find_dead_ends_once(arr):
+    """Called by find_dead_ends"""
+    Nx, Ny = arr.shape
+
+    # Surround whole grid with border of False values to avoid index errors
+    arr = np.append(arr, np.full((Nx, 1), False, dtype=bool), axis=1)
+    arr = np.append(arr, np.full((1, Ny + 1), False, dtype=np.bool), axis=0)
+    arr = np.insert(arr, 0, False, axis=1)
+    arr = np.insert(arr, 0, False, axis=0)
+
+    plt.pcolormesh(arr)
+
+    # Kernels used in convolution to identify possible dead ends
+    x_kernel = np.array([[1], [0], [1]])
+    y_kernel = np.array([[1, 0, 1]])
+
+    conv_x = convolve(arr, y_kernel, 'same')
+    conv_y = convolve(arr, x_kernel, 'same')
+
+    inds_x = np.logical_and(arr, conv_x == 0)
+    inds_x_labels, nxlabels = label(inds_x)
+
+    inds_y = np.logical_and(arr, conv_y == 0)
+    inds_y_labels, nylabels = label(inds_y)
+
+    # Find inds in first direction
+    for i in np.r_[1:nxlabels+1]:
+        args_i = np.argwhere(inds_x_labels == i)
+        y_inds = args_i[[0, -1], 0] + np.r_[-1, 1]
+        x_ind = args_i[0, 1]
+
+        if np.all(arr[y_inds, x_ind]):
+            # Not a dead end, water on both sides
+            inds_x_labels[inds_x_labels == i] = 0
+
+    inds_x = inds_x_labels > 0
+
+    # Same for second direction
+    for i in np.r_[1:nylabels+1]:
+        args_i = np.argwhere(inds_y_labels == i)
+        y_ind = args_i[0, 0]
+        x_inds = args_i[[0, -1], 1] + np.r_[-1, 1]
+
+        if np.all(arr[y_ind, x_inds]):
+            # Not a dead end, water on both sides
+            inds_y_labels[inds_y_labels == i] = 0
+
+    inds_y = inds_y_labels > 0
+
+    dead_end_inds = np.logical_or(inds_x, inds_y)
+
+    # Account for border of False values added at start
+    dead_end_inds = dead_end_inds[1:-1, 1:-1]
+
+    return dead_end_inds
+
+
 def smooth_bump(x, H, ends=0.2, mid=0.2):
     """
     Create a smooth bump of height H with flat bits in the middle and at the
     ends. ends, and mids are fractions of x containing each of the parts
     of the bump::
-        
+
                   .-------.
                  /         \\
         ........-           -.........
         |  end |   | mid |   |  end  |
-    
+
     The bumps are half of a sinusoid
     """
     d = x[-1]
@@ -297,6 +390,7 @@ class Grid:
         self.cell_centred()
         self.mesh()
         self.to_kms()
+        self.Ns()
         if m is not None:
             self.m = m
             self.latlon(self.m)
@@ -337,6 +431,11 @@ class Grid:
             if 'z' in key:
                 continue
             exec('self.' + key + '_km = self.' + key + '/1000')
+
+    def Ns(self):
+        self.Nx = len(self.xc)
+        self.Ny = len(self.yc)
+        self.Nz = len(self.zc)
 
     def latlon(self, m):
         self.LONc, self.LATc = self.m(self.Xc, self.Yc, inverse=True)
