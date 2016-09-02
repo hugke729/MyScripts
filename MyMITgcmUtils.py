@@ -185,15 +185,21 @@ def get_run_settings(output_file):
     return D
 
 
-def get_grid(run_dir):
+def get_grid(run_dir, x0=0, y0=0):
     """Create a Grid object from model's output grid files
 
     Inputs
     ------
     run_dir : str
         Full path to model's run directory
+    x0, y0 : floats
+        Distances from origin
     """
     dx = rdmds(run_dir + 'DXG*')[0, :]
     dy = rdmds(run_dir + 'DYG*')[:, 0]
+    dz = rdmds(run_dir + 'DRF*')[:, 0]
 
-    return Grid(dx, dy)
+    g = Grid(dx, dy, dz, x0=x0, y0=y0)
+    g.depth = rdmds(run_dir + 'Depth*')
+
+    return g
