@@ -100,7 +100,12 @@ def neg_pos(x):
 
 
 def ma_mad(x, axis=None):
-    return ma.median(ma.abs(x), axis=axis)
+    """Median absolute deviation"""
+    median_x = ma.median(x, axis=axis)
+    if axis is not None:
+        median_x = ma.expand_dims(median_x, axis=axis)
+
+    return ma.median(ma.abs(x - median_x), axis=axis)
 
 
 def fillnan_pad(x, axis=0):
