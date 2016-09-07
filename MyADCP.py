@@ -12,7 +12,7 @@ from MyInterp import smooth1d_with_holes
 from MyMVP import flatten_to_line
 from MyInteractive import disp_latlon
 from MyMapFunctions import haversines
-from MyNumpyTools import cosd
+from MyNumpyTools import cosd, ma_mad
 
 # Overview of functions
 
@@ -22,11 +22,11 @@ from MyNumpyTools import cosd
 #   |  |- truncate_data
 #   |  |- subtract_vessel_velocity
 #   |  |- get_latlon
+#   |  |- mask_seafloor
 #   |  |- along_component
 #   |  |- smooth_output
 #   |  |- create_dist_coord
 #   |  |- clean_data_dict
-#   |  |- mask_seafloor
 #   |  |- save_data
 
 
@@ -242,14 +242,45 @@ def create_dist_coord(data, is_long_section=False):
     return data
 
 
-def mask_seafloor(data, nbins=5):
-    """Mask velocities below the seafloor and nbins above it"""
-    mask_depth = data['dep'] + nbins*data['CellSize']
-    mask = (np.atleast_3d(data['depth_s']) -
-            np.meshgrid(data['dist_s'], mask_depth, np.ones(4))[1] < 0)
-    mask = np.transpose(mask, axes=(1, 0, 2))
-    data['vel_s'] = ma.masked_where(mask, data['vel_s'])
-    data['along_vel_s'] = ma.masked_where(mask[..., 0], data['along_vel_s'])
+def mask_seafloor(data):
+    """Mask velocities below the seafloor and bad values above it
+
+    For velocities above seafloor, check for bad data using median and
+    median absolute deviation and distance above seafloor as parameters
+    """
+
+    # Below seafloor
+    seafloor = np.mean(data['bt_depth'], axis=1)
+    dist_from_seafloor = data['dep'] - seafloor[:, np.newaxis]
+    mask = dist_from_seafloor > 0
+    mask3d = mask[..., np.newaxis]*np.ones(mask.shape + (4,))
+
+    data['vel'] = ma.masked_where(mask3d, data['vel'])
+
+    # Remove values that appear incorrect as a result of being close to the
+    # seafloor
+    u_mag = np.hypot(data['vel'][..., 0], data['vel'][..., 1])
+    median_vel = ma.median(u_mag, axis=1)[..., np.newaxis]
+    mad_vel = ma_mad(u_mag, axis=1)[..., np.newaxis]
+    badness_score = np.abs(u_mag - median_vel)/mad_vel
+
+    # Scale distance of 8m corresponds to ~5 cells above seafloor that stand
+    # a chance of being masked
+    badness_score *= np.exp(-np.abs(dist_from_seafloor)/8)
+
+    # Normalise
+    badness_score = badness_score/np.sum(badness_score, axis=1)[:, np.newaxis]
+
+    # Don't mask anything more than 30m above seafloor
+    seafloor_mask = badness_score > 0.1
+    seafloor_mask.data[dist_from_seafloor > 30] = False
+
+    # Total mask
+    mask = np.logical_or(mask, seafloor_mask)
+
+    # Apply mask
+    data['vel'].mask = mask[..., np.newaxis]*ma.ones((1, 1, 4))
+
     return data
 
 
@@ -292,12 +323,12 @@ def process_adcp(start, end, lim_type='cast', is_long_section=False,
     data = truncate_data(data, start, end, lim_type=lim_type)
     data['vel'] = subtract_vessel_velocity(data['vel'], data['bt_vel'])
     data['lat'], data['lon'] = get_latlon(data)
+    data = mask_seafloor(data)
     data['along_vel'] = along_component(
         data['vel'], data['heading'], data['lat'], is_long_section)
     data = smooth_output(data)
     data = create_dist_coord(data, is_long_section)
     data = clean_data_dict(data)
-    data = mask_seafloor(data, nbins=0)
     data['u_along_zavg'] = depth_averaged_velocity(data['along_vel_s'])
     if save_name is not None:
         save_data(data, save_name)
