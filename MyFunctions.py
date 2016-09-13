@@ -1,12 +1,11 @@
-# http://stackoverflow.com/questions/171765/
-# what-is-the-best-way-to-get-all-the-divisors-of-a-number
 import math
 import numpy as np
 import numpy.ma as ma
 import itertools
-from warnings import filterwarnings
-from MyNumpyTools import nan_or_masked, nan_to_value
-import inspect
+import warnings
+from MyNumpyTools import nan_or_masked
+from matplotlib._cntr import Cntr
+from scipy.interpolate import interp1d
 
 
 def divisorGenerator(n):
@@ -22,6 +21,8 @@ def divisorGenerator(n):
 
 def divisors(n, type_out=int):
     """Compute all divisors of n"""
+    # http://stackoverflow.com/questions/171765/
+    # what-is-the-best-way-to-get-all-the-divisors-of-a-number
     div_array = np.array(list(divisorGenerator(n))).astype(type_out)
 
     return div_array
@@ -207,3 +208,48 @@ def blockify(x, y):
 def ma_percentile(a, q, axis=None, **kw_args):
     err_msg = 'Import ma_percentile from MyNumpyTools instead of MyFunctions'
     raise DeprecationWarning(err_msg)
+
+
+def get_contour(x, y, Z, levels):
+    """Get just the data that would be returned by plt.contour
+
+    The output is interpolated onto the original x grid
+
+    Inputs
+    ------
+    x, y : 1D arrays
+        Arrays that you would input into plt.contour
+    Z : 2D arrays
+        Array that you would input into plt.contour
+    levels : float, array, or list
+        Value(s) at which contours are calculated
+    """
+
+    # Allow Z array to be either way around
+    try:
+        X, Y = np.meshgrid(x, y, indexing='ij')
+        c = Cntr(X, Y, Z)
+    except ValueError:
+        X, Y = np.meshgrid(x, y)
+        c = Cntr(X, Y, Z)
+
+    # Ensure levels is iterable
+    if not hasattr(levels, '__iter__'):
+        levels = np.r_[levels]
+
+    out = np.zeros((len(x), len(levels)))
+
+    warnings.filterwarnings('ignore', 'invalid value encountered*')
+
+    for i, level in enumerate(levels):
+        res = c.trace(level)
+
+        # result is a list of arrays of vertices and path codes
+        # (see docs for matplotlib.path.Path)
+        nseg = len(res) // 2
+        x_cont = np.vstack(res[:nseg])[:, 0]
+        z_cont = np.vstack(res[:nseg])[:, 1]
+        f = interp1d(x_cont, z_cont, fill_value=np.nan, bounds_error=False)
+        out[:, i] = f(x)
+
+    return out.squeeze()
