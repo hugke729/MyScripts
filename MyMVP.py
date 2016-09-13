@@ -7,6 +7,7 @@ import numpy.ma as ma
 import scipy.signal as signal
 import re
 from time import strptime
+from scipy.interpolate import interp1d
 from scipy.stats import binned_statistic, mode
 from scipy.ndimage.measurements import label
 import pickle
@@ -15,7 +16,8 @@ import seawater.eos80 as sw
 from seawater.constants import c3515
 from warnings import filterwarnings
 from MyMapFunctions import haversines
-from MyFunctions import scalar_projection, angle, central_diff_gradient
+from MyFunctions import (scalar_projection, angle, central_diff_gradient,
+                         get_contour)
 from MyInterp import smooth1d_with_holes as smooth
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
@@ -42,6 +44,7 @@ from vertmodes import vertModes
 #   |      |- select_downcast
 #   |-interp_missing_latlon
 #   |-flatten_to_line
+#   |-two_layer_treatment
 #   |-combine_MVP_ADCP
 #
 # create_timeline (stand-alone function used only once)
@@ -186,11 +189,11 @@ def concatenate_binned_arrays(
             for field in xyt_fields:
                 grid_all[field] += [xyt_i[field]]
 
-        except ValueError:
+        except (ValueError, IndexError):
             # Skip this cast. If the try suite didn't work, it's very likely
             # the cast had something wrong, such as no downcast data
             bad_casts += [i]
-            print(' Bad cast: ' + str(cast_no))
+            print(' Bad cast: ' + str(cast_no), flush=True)
 
     # Remove empty spaces left by bad casts
     for field in (fields + scalar_fields):
@@ -238,6 +241,8 @@ def concatenate_binned_arrays(
     grid_all['z_f'] = z_bins*1.0
     grid_all['z_c'] = (z_bins[1:] + z_bins[:-1])/2
     grid_all['z_f2d'] = np.outer(np.ones(dist_np1.size), z_bins)
+
+    # Analyse flow in two layers
 
     return grid_all
 
@@ -674,6 +679,67 @@ def flatten_to_line(lons, lats):
     return total_dist
 
 
+def two_layer_treatment(mvp_dict):
+    """Estimate g-prime and interface depth
+
+    Returns
+    -------
+    gprime : 1D array
+        g * delta_rho/rho
+    interface_depth : 1D array
+        Depth in metres of "two-layer" interface
+    """
+
+    # Simplify names of commonly used variables
+    prho = mvp_dict['prho'].copy()
+    z_c = mvp_dict['z_c'].copy()
+
+    # Sill inds are where depth is in shallowest 10% of all depths in transect
+    # Somewhat ad hoc, but I'm sure it will work all right
+    bottom = np.array(mvp_dict['bottom'])
+    sill_inds = np.where(bottom < np.percentile(bottom, 10))[0]
+
+    # Find interface of mode-1 wave for each profile in sill_inds
+    rho_interfaces = np.zeros_like(sill_inds, dtype='float')
+    for i, ind in enumerate(sill_inds):
+        # Interpolate horizontal mode structure against density
+        f = interp1d(mvp_dict['hori_0'][ind, :], prho[ind, :])
+        # Find density of zero crossing of horizontal structure
+        rho_interfaces[i] = f(0)
+
+    rho_interface = np.mean(rho_interfaces)
+
+    # Find depth of rho_interface along transect
+    x_in, y_in, z_in = mvp_dict['dist_flat'], z_c, prho
+    interface_depth = get_contour(x_in, y_in, z_in, rho_interface)
+
+    # Preallocate results to keep
+    gprime = np.full_like(x_in, np.nan)
+
+    # Find average density in each layer using linear fit
+    for i, rho_i in enumerate(mvp_dict['prho']):
+        top_layer_inds = z_c <= interface_depth[i]
+        bot_layer_inds = z_c > interface_depth[i]
+        top_z = z_c[top_layer_inds]
+        bot_z = z_c[bot_layer_inds]
+        top_rho = prho[i, :][top_layer_inds]
+        bot_rho = prho[i, :][bot_layer_inds]
+
+        if (~top_rho.mask).sum() < 3 or (~bot_rho.mask).sum() < 3:
+            # Not enough values to do linear fit
+            continue
+
+        p_top = ma.polyfit(top_z, top_rho, 1)
+        p_bot = ma.polyfit(bot_z, bot_rho, 1)
+
+        top_rho_avg = np.polyval(p_top, interface_depth[i]/2)
+        bot_rho_avg = np.polyval(p_bot, (bottom[i] + interface_depth[i])/2)
+
+        gprime[i] = 9.81*(bot_rho_avg - top_rho_avg)/bot_rho_avg
+
+    return gprime, interface_depth
+
+
 def combine_MVP_ADCP(mvp_dict, adcp_dict):
     """Put MVP and ADCP data on the same grid for individual transects
 
@@ -738,6 +804,7 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
         return ma.masked_invalid(interped)
 
     u_along = interpolate_to_new_grid(adcp_dict['along_vel_s'], 'adcp')
+
 
     plt.figure()
     plt.pcolormesh(X/1000, -Z, ma.masked_invalid(u_along))
