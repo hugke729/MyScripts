@@ -243,6 +243,10 @@ def concatenate_binned_arrays(
     grid_all['z_f2d'] = np.outer(np.ones(dist_np1.size), z_bins)
 
     # Analyse flow in two layers
+    if flatten_transect:
+        gprime, interface_depth = two_layer_treatment(grid_all)
+        grid_all['gprime'] = gprime
+        grid_all['interface_depth'] = interface_depth
 
     return grid_all
 
@@ -740,6 +744,29 @@ def two_layer_treatment(mvp_dict):
     return gprime, interface_depth
 
 
+def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
+    """Calculate composite Froude number G"""
+    G = np.full_like(gprime, np.nan)
+
+    for i, u_i in enumerate(along_u.T):
+        top_layer_inds = adcp_z <= interface_depth[i]
+        bot_layer_inds = adcp_z > interface_depth[i]
+
+        if 0 in [top_layer_inds.sum(), bot_layer_inds.sum()]:
+            # Insufficient data to calculate Froude number
+            continue
+
+        top_u = ma.mean(u_i[top_layer_inds])
+        bot_u = ma.mean(u_i[bot_layer_inds])
+
+        G_squared = (top_u**2/(gprime[i]*interface_depth[i]) +
+                     bot_u**2/(gprime[i]*(seafloor[i] - interface_depth[i])))
+
+        G[i] = np.sqrt(G_squared)
+
+    return G
+
+
 def combine_MVP_ADCP(mvp_dict, adcp_dict):
     """Put MVP and ADCP data on the same grid for individual transects
 
@@ -805,10 +832,11 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
 
     u_along = interpolate_to_new_grid(adcp_dict['along_vel_s'], 'adcp')
 
+    G = calc_froude_number(
+        u_along, mvp_dict['gprime'], mvp_dict['interface_depth'], z,
+        mvp_dict['bottom'])
 
-    plt.figure()
-    plt.pcolormesh(X/1000, -Z, ma.masked_invalid(u_along))
-    return X, Z, u_along
+    return G
 
 # if __name__ == '__main__':
 #     for i in np.r_[358]:
