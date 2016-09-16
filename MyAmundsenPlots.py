@@ -18,7 +18,7 @@ import colormaps
 from MySysUtils import merge_dicts, preall
 from MyInteractive import disp_latlon
 from IPython.display import Markdown, display
-from MyMVP import loadMVP_m1
+from MyMVP import loadMVP_m1, combine_MVP_ADCP
 from MyCTD import get_xyt, get_theta_S_sigma_z, get_velocity_profile, calc_N2
 from MyInterp import inpaint_nans
 
@@ -614,3 +614,39 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
     title = name.replace('_', ' ')
     display(Markdown('## ' + title.capitalize()))
     return fig
+
+
+def froude_plots():
+    """Plot composite Froude number for all sections"""
+    fig_opts = dict(nrows=6, ncols=1, sharex=True, sharey=True)
+    fig_G, ax_G = plt.subplots(**fig_opts)
+    fig_rho, ax_rho = plt.subplots(**fig_opts)
+    i = 0
+
+    d_vs_z_fname = '/home/hugke729/PhD/Data/Shipboard/MVP/transect_depth.txt'
+    dist, depth = np.genfromtxt(d_vs_z_fname, unpack=True, delimiter=',')
+    for j, k in enumerate(transects):
+        if 'repeat' not in k and 'full' not in k:
+            continue
+        data_dir = '/home/hugke729/PhD/Data/Shipboard/'
+        mvp_fname = data_dir + 'MVP/transects/' + k + '.p'
+        adcp_fname = data_dir + 'ADCP/processed/' + k + '.p'
+        mvp_dict = pickle.load(open(mvp_fname, 'rb'))
+        adcp_dict = pickle.load(open(adcp_fname, 'rb'))
+        G = combine_MVP_ADCP(mvp_dict, adcp_dict)
+        ax_rho[i].plot(dist, depth, 'k')
+        ax_rho[i].plot(mvp_dict['dist_flat'], mvp_dict['interface_depth'], 'k')
+        cax = ax_rho[i].contourf(
+            mvp_dict['dist_flat'], mvp_dict['z_c'], mvp_dict['prho'].T - 1000,
+            cmap='afmhot_r', levels=np.r_[25.2:27:0.2])
+
+        ax_rho[i].set_ylabel(k)
+        flipy(ax_rho[i])
+        ax_G[i].plot(mvp_dict['dist_flat'], G, 'k')
+        ax_G[i].plot(mvp_dict['dist_flat'], np.ones_like(G), 'r')
+        i += 1
+
+    cbar = fig_rho.colorbar(cax, ax=list(ax_rho))
+    cbar.ax.invert_yaxis()
+
+    ax_G[0].set_ylim(0, 5)
