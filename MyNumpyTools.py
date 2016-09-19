@@ -61,6 +61,24 @@ def argmax_nd(arr):
     return np.unravel_index(arr.argmax(), arr.shape)
 
 
+def logical_all(*args):
+    """Like logical_and, but for any number of input arrays"""
+    out = np.ones_like(args[0]).astype(bool)
+    for arg in args:
+        out = np.logical_and(out, arg)
+
+    return out
+
+
+def logical_any(*args):
+    """Like logical_and, but for any number of input arrays"""
+    out = np.zeros_like(args[0]).astype(bool)
+    for arg in args:
+        out = np.logical_or(out, arg)
+
+    return out
+
+
 def ma_percentile(a, q, axis=None, **kw_args):
     """Equivalent to np.percentile, but works on masked arrays
 
