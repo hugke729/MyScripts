@@ -216,10 +216,16 @@ def TS_cmap(direc):
     return cmap
 
 
-def add_water_masses(ax):
+def add_water_masses(ax, water_mass_list=[], show_markers=True, alpha=0.5):
     """Add patches and scatter points showing different water masses
 
-    Water masses derived from Kliem and Greenberg (2003)"""
+    Water masses derived from Kliem and Greenberg (2003)
+
+    If water_mass_list is a non-empty list, only plot those on the list.
+    Possible water masses are:
+        'baffin_bay', 'northwest_CAA', 'canada_basin', 'n_viscount_melville',
+        'n_lancaster_sound', 'nares_st'
+    """
     defn_file = ('/home/hugke729/PhD/Data/TS_climatology/Kliem_Greenberg/' +
                  'derived/water_mass_definitions.p')
     D = pickle.load(open(defn_file, 'rb'))
@@ -240,8 +246,11 @@ def add_water_masses(ax):
     names, patches = [], []
     cols = get_n_colors(8)
     for i, (k, v) in enumerate(D_polys.items()):
+        if (water_mass_list != [] and k not in water_mass_list):
+            # Don't plot this water mass
+            continue
         names += [k]
-        poly = Polygon(v, color=cols[i], zorder=-1, alpha=0.5)
+        poly = Polygon(v, color=cols[i], zorder=1, alpha=alpha)
         patches += [ax.add_patch(poly)]
 
         # D_medians has same keys as D_polys
@@ -249,10 +258,16 @@ def add_water_masses(ax):
         xs, ys = [ma.filled(x, np.nan) for x in [xs, ys]]
         markers = 2*['o', 'v', 'D', 's', 'p', '*', '+', '<', 'x', 'v']
         for x, y, marker in zip(xs, ys, markers):
-            ax.scatter(x, y, c=cols[i], s=45, marker=marker, zorder=5)
+            if show_markers:
+                ax.scatter(x, y, c=cols[i], s=45, marker=marker, zorder=5)
+        else:
+            # Work around to get autoscaling to work
+            # Easiest to just plot line of zero width
+            ax.plot(x, y, lw=0)
 
     # Make names nicer to read
     names = [name.replace('_', ' ').title() for name in names]
+    names = [name.replace('Caa', 'CAA') for name in names]
 
     # Add legend below plot
     L, B, W, H = pos(ax)
