@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 import numpy.ma as ma
 from numpy import logical_and as l_and
@@ -260,7 +259,7 @@ def find_dead_ends(arr):
         else:
             dead_ends_remain = False
 
-    dead_end_inds = orig_arr - arr
+    dead_end_inds = (orig_arr - arr).astype(bool)
 
     return dead_end_inds
 
@@ -274,8 +273,6 @@ def find_dead_ends_once(arr):
     arr = np.append(arr, np.full((1, Ny + 1), False, dtype=np.bool), axis=0)
     arr = np.insert(arr, 0, False, axis=1)
     arr = np.insert(arr, 0, False, axis=0)
-
-    plt.pcolormesh(arr)
 
     # Kernels used in convolution to identify possible dead ends
     x_kernel = np.array([[1], [0], [1]])
