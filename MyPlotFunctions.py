@@ -39,6 +39,13 @@ def flipy(ax=None):
 def flip(ax):
     flipy(ax)
 
+def flipys():
+    fig_list = plt.get_fignums()
+    for i in fig_list:
+        plt.figure(i)
+        for ax in plt.gcf().get_axes():
+            flipy(ax)
+
 
 def rm_offset(ax=None):
     ax = plt.gca() if ax is None else ax
