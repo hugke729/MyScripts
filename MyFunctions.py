@@ -223,6 +223,11 @@ def get_contour(x, y, Z, levels):
         Array that you would input into plt.contour
     levels : float, array, or list
         Value(s) at which contours are calculated
+
+    Returns
+    -------
+    contour_values : 1D or 2D array
+        Shape depends on number of levels
     """
 
     # Allow Z array to be either way around
