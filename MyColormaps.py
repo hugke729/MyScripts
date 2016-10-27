@@ -189,6 +189,26 @@ def one_color_binary_cmap(color, reverse=False):
     return binary_cmap
 
 
+def red_yellow_white_cyan_blue(N=256, reverse=True, white_to_grey=False):
+    cols = [
+        '#000055',
+        '#0000f5',
+        '#008cff',
+        '#7affff',
+        '#ffffff',
+        '#ffff83',
+        '#ff9d0c',
+        '#ff0500',
+        '#5f0000']
+    if white_to_grey:
+        cols[3:6] = ['#9ee6e6', '#ececec', '#eaea99']
+    return LinearSegmentedColormap.from_list('custom', cols, N)
+
+
+def red_yellow_grey_cyan_blue(N=256, reverse=False):
+    return red_yellow_white_cyan_blue(N, reverse=reverse, white_to_grey=True)
+
+
 def cmap_cold(reverse=False):
     C = np.array(
         [[0.9857, 0.9857, 0.9857],
