@@ -3,7 +3,7 @@ import numpy as np
 import numpy.ma as ma
 from warnings import filterwarnings
 from scipy.interpolate import griddata
-from MyNumpyTools import nan_or_masked
+from MyNumpyTools import nan_or_masked, logical_all
 from scipy.sparse.linalg import lsqr
 from scipy.sparse import lil_matrix
 from mpl_toolkits.mplot3d import axes3d
@@ -514,3 +514,77 @@ def inpaint_nan_example():
     # ax2.plot_surface(X_c, Y_c, z_fixed, rstride=rstride, cstride=cstride, color='r')
     # ax2.plot_surface(X_c, Y_c, z_new, rstride=rstride, cstride=cstride)
 
+
+def bin_2d_transect(x, y, Z, x_out, y_out):
+    """Bin transect Z(x, y), where x can be irregular
+
+    Inputs
+    ------
+    x, y : 1D arrays
+        x can be irregular, y cannot
+    Z : 2D array
+        Data at each point x, y. May be masked array
+    x_out, y_out : 1D arrays
+        Edges of grid on which to bin Z
+
+    Returns
+    -------
+    Z_out : 2D array
+        Shape (len(x_out) - 1, len(y_out) - 1)
+    """
+    # Preallocate result
+    Nx, Ny = x_out.size - 1, y_out.size - 1
+    Z_out = np.full((Nx, Ny), np.nan)
+
+    filterwarnings('ignore', '.*Mean of empty slice*.')
+
+    # Using loop for simplicity
+    for i, j in np.ndindex(Nx, Ny):
+        in_x_bin = np.logical_and(x > x_out[i], x < x_out[i + 1])
+        in_y_bin = np.logical_and(y > y_out[j], y < y_out[j + 1])
+
+        Z_in_bin = Z[in_y_bin, in_x_bin]
+        Z_out[i, j] = np.nanmean(ma.filled(Z_in_bin, np.nan))
+
+    if ma.isMA(Z):
+        Z_out = ma.masked_invalid(Z_out)
+
+    return Z_out
+
+
+def fill_gaps_in_2d_transect_once(Z):
+    was_masked = ma.isMA(Z)
+
+    # Ensure array has NaNs, not mask
+    Z = ma.filled(Z, np.nan).copy()
+
+    fill_values = np.nanmean(
+        np.dstack((np.roll(Z, 1, axis=1), np.roll(Z, -1, axis=1))), axis=2)
+
+    inds_to_fill = np.logical_and(np.isnan(Z), ~np.isnan(fill_values))
+
+    Z[inds_to_fill] = fill_values[inds_to_fill]
+
+    if was_masked:
+        Z = ma.masked_invalid(Z)
+
+    return Z
+
+
+def fill_gaps_in_2d_transect(Z, n=1):
+    """Clean output of bin_2d_transect by filling in gaps laterally
+
+    If there is a single column of data missing, this function fills it
+
+    Inputs
+    ------
+    Z : 2D array
+       Array with gaps to fill
+    n : int
+       Width of gap that will be filled (ish).
+    """
+
+    for i in range(n):
+        Z = fill_gaps_in_2d_transect_once(Z)
+
+    return Z
