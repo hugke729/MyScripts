@@ -13,7 +13,8 @@ from warnings import filterwarnings
 from MyPlotFunctions import flipx, flipy, padded_lims, fix_colorbar, pos
 from MyOceanography import add_sigma_contours
 from MyNumpyTools import minmax
-from MyColormaps import cmap_cold, get_n_colors, get_n_colors2
+from MyColormaps import (cmap_cold, get_n_colors, get_n_colors2,
+                         red_yellow_grey_cyan_blue)
 import colormaps
 from MySysUtils import merge_dicts, preall
 from MyInteractive import disp_latlon
@@ -156,7 +157,8 @@ def adcp_pcolor(data, is_long_section=False, ax=None, cross_vel='V',
     else:
         dep = data['dep']
 
-    pcol_opts = dict(rasterized=True, cmap=cm.RdBu_r, vmin=-0.5, vmax=0.5)
+    cmap = red_yellow_grey_cyan_blue()
+    pcol_opts = dict(rasterized=True, cmap=cmap, vmin=-0.5, vmax=0.5)
     pcol_opts = merge_dicts(pcol_opts, pcolor_kwargs)
     print(pcol_opts)
     pcm = ax.pcolormesh(data['dist_s'] / 1e3, dep, vel, **pcol_opts)
