@@ -21,6 +21,7 @@ from IPython.display import Markdown, display
 from MyMVP import loadMVP_m1, combine_MVP_ADCP
 from MyCTD import get_xyt, get_theta_S_sigma_z, get_velocity_profile, calc_N2
 from MyInterp import inpaint_nans
+from MyMapFunctions import haversines
 
 
 # Versatile contour plot
@@ -629,6 +630,53 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
     title = name.replace('_', ' ')
     display(Markdown('## ' + title.capitalize()))
     return fig
+
+
+def plot_ctd_as_section(cast_nos):
+    data_dir = '/home/hugke729/PhD/Data/Shipboard/CTD/processed/'
+    xyt_file = data_dir + 'xyt_summary.pickle'
+    xyt = pickle.load(open(xyt_file, 'rb'))
+
+    # Preallocate
+    lat, lon, depth = preall(len(cast_nos), copies=3)
+    S, theta, sigma = preall((len(cast_nos), 300), 3, np.nan)
+    z = np.r_[2:302]
+
+    # Ensure west to east
+    if xyt[cast_nos[0]][1] > xyt[cast_nos[-1]][1]:
+        cast_nos = cast_nos[::-1]
+
+    for i, cast in enumerate(cast_nos):
+        lat[i] = xyt[cast][0]
+        lon[i] = xyt[cast][1]
+        depth[i] = xyt[cast][3]
+        theta_i, S_i, sigma_i, _ = get_theta_S_sigma_z(cast)
+        N = len(theta_i)
+
+        theta[i, :N] = theta_i
+        S[i, :N] = S_i
+        sigma[i, :N] = sigma_i
+
+    # Calculate dist
+    dist = haversines(lon, lat)[0]
+
+    fig, ax = plt.subplots()
+
+    cax = ax.contourf(
+        dist, z, theta.T,
+        cmap=cmap_cold(reverse=True), levels=np.r_[-1.6:1.61:0.2])
+
+    rho_levels = [25, 25.5, 26, 26.25, 26.5]
+    co = ax.contour(dist, z, sigma.T, rho_levels, colors='r')
+    ax.clabel(co, rho_levels[1:], fmt='%3.2f')
+    ax.plot(dist, depth, 'k')
+    cbar = fig.colorbar(cax)
+    cbar.set_label('Potential temperature (C)')
+    ax.set(ylim=(250, 0), ylabel='Depth (m)', xlabel='Distance eastward (km)')
+
+    ax.set(title='CTD casts: ' + str(cast_nos[0]) + '--' + str(cast_nos[-1]))
+
+    return ax
 
 
 def froude_plots():
