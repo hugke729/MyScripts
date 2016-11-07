@@ -23,6 +23,7 @@ from MyMVP import loadMVP_m1, combine_MVP_ADCP
 from MyCTD import get_xyt, get_theta_S_sigma_z, get_velocity_profile, calc_N2
 from MyInterp import inpaint_nans
 from MyMapFunctions import haversines
+from MyInterp import smooth1d_with_holes as smooth
 
 
 # Versatile contour plot
@@ -503,7 +504,7 @@ def plot_profiles(cast_nos, ctd_or_mvp='mvp', raw=False, figsize=None,
         axT.plot(theta, z, **line_props)
         axS.plot(S, z, **line_props)
         if rho_or_N == 'N':
-            ax_N2.plot(1e4*N2, z, **line_props)
+            ax_N2.plot(1e4*smooth(N2, 20), z, **line_props)
         elif rho_or_N == 'rho':
             ax_N2.plot(sigma, z, **line_props)
         ax_TS.plot(S, theta, color=colors[i], lw=2)
