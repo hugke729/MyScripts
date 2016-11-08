@@ -24,6 +24,9 @@ from MyCTD import get_xyt, get_theta_S_sigma_z, get_velocity_profile, calc_N2
 from MyInterp import inpaint_nans
 from MyMapFunctions import haversines
 from MyInterp import smooth1d_with_holes as smooth
+from MyFunctions import central_diff_gradient
+from MyGrids import estimate_cell_edges
+from MyNumpyTools import sind
 
 
 # Versatile contour plot
@@ -716,3 +719,70 @@ def froude_plots():
     cbar.ax.invert_yaxis()
 
     ax_G[0].set_ylim(0, 5)
+
+
+def calc_vol_flux(name):
+    """Calculate volume flux (and include plot) for cross-sound transects"""
+    data_dir = '/home/hugke729/PhD/Data/Shipboard/'
+    adcp_fname = data_dir + 'ADCP/processed/' + name + '.p'
+    adcp_dict = pickle.load(open(adcp_fname, 'rb'))
+
+    # Get north-south velocity
+    vel_north = adcp_dict['vel_s'][:, :, 1]
+
+    x = estimate_cell_edges(adcp_dict['dist_s'])/1e3
+    y = estimate_cell_edges(adcp_dict['dep'])
+
+    fig, axs = plt.subplots(ncols=2, gridspec_kw=dict(width_ratios=(2, 1)))
+
+    # Plot pcolor
+    axs[0].pcolormesh(x, y, vel_north.T, vmin=-0.5, vmax=0.5, cmap='RdBu_r')
+    axs[0].set(ylim=(250, 0), xlabel='Distance (km)', ylabel='Depth (m)',
+               title=name)
+    axs[0].plot(adcp_dict['dist_s']/1e3, adcp_dict['depth_s'], color='k')
+
+    # Plot map
+    map_plot(axs[1], adcp_dict['lon_s'], adcp_dict['lat_s'],
+             dist=adcp_dict['dist_s']/1e3)
+
+    # Heading (important if not directly east-west)
+    heading = haversines(adcp_dict['lon_s'], adcp_dict['lat_s'])[1]
+
+    dx = central_diff_gradient(adcp_dict['dist_s'])
+
+    dA = adcp_dict['CellSize']*dx[:, np.newaxis]
+
+    flux = vel_north*dA
+    flux *= np.abs(sind(heading))[:, np.newaxis]
+
+    area = ma.masked_where(flux.mask, dA*np.ones_like(flux))
+    area *= np.abs(sind(heading))[:, np.newaxis]
+    area = area.sum()
+
+    filterwarnings('ignore', '.*invalid value encountered*.')
+    flux_northward = flux[flux > 0].sum()/1e6
+    flux_southward = flux[flux < 0].sum()/1e6
+    flux_net = flux.sum()/1e6
+
+    fmt = """
+    Northward flux: {0:3.3f} Sv
+    Southward flux: {1:3.3f} Sv
+    Net flux: {2:3.3f} Sv
+    Area: {3:7.0f} m2"""
+    print(name)
+    print(fmt.format(flux_northward, flux_southward, flux_net, area))
+
+    # Actual cross-sectional area (sq metres)
+    # Calculated by interpolating across my bathymetry map
+    # Wellington_cross_3 accounts for bearing (6687758 m2 x sin(313.7))
+    actual_area = dict(
+        wellington_cross_1=4629513,
+        wellington_cross_2=6378842,
+        wellington_cross_3=4835029,
+        wellington_CTD_1=7562074,
+        wellington_CTD_2=4564666,
+        wellington_CTD_3=5188899,
+        barrow_CTD=12452423)
+
+    area_percent = 100*area/actual_area[name]
+    print('    Percent area covered by ADCP: {0:2.0f}\n\n'.format(area_percent))
