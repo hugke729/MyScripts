@@ -97,7 +97,9 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
     # Hydrography
     fields = ['p', 'z', 'SV', 'T', 'C', 'S', 'rho', 'ANGL1', 'ANLG2', 'ANLG3']
     data = m1_to_dict(filename, fields)
-    data['p'], data['z'] = smooth_p_and_z(*get('p', 'z')(data))
+
+    data['p_raw'], data['z_raw'] = data['p'].copy(), data['z'].copy()
+    data['p'], data['z'] = smooth_p_and_z(*get('p_raw', 'z_raw')(data))
 
     if lagT:
         # Having option to not lag temperature is helpful to show working of
@@ -106,11 +108,15 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
         data['S_unlagged'] = data['S'].copy()
         data['S'], data['T'] = lag_temperature(*get('C', 'T', 'p')(data))
 
+    # Note: I think I have covered my bases to ensure arrays aren't modified
+    # in place, but I might have missed some. Anyways, I calculate dissipation
+    # early on, just to be safe, since the functions after that include
+    # smoothing procedures, which would ruin diss calculation
     data['prho'], data['rho'] = calc_density(*get('S', 'T', 'p')(data))
-    data['N2'] = calc_N2(*get('p', 'prho', 'z')(data))
-    data['theta'] = potential_temp(*get('S', 'T', 'p')(data))
-    data['eps'], data['L_T'] = calc_eps(*get('p', 'prho', 'z')(data))
+    data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z_raw')(data))
     data['eps_zavg'] = calc_eps_avg(*get('eps', 'z')(data))
+    data['theta'] = potential_temp(*get('S', 'T', 'p')(data))
+    data['N2'] = calc_N2(*get('p', 'prho', 'z')(data))
 
     if bin_data:
         z_bins = np.arange(0, 250) if z_bins is None else z_bins
@@ -386,6 +392,10 @@ def calc_N2(p, prho, z):
     5) Convert to buoyancy frequency
     6) Interpolate N2 back onto original z vector
     """
+    # Don't want to modify in place (otherwise over smooth things)
+    p = p.copy()
+    prho = prho.copy()
+    z = z.copy()
 
     # For most raw quantities, I'm leaving upcast and downcast data unchanged
     # However, for N2 I specifically want to work with only downcast data
@@ -451,8 +461,12 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     Get N2 estimate for overturn at same time
 
-    n_smooth_rho defaults to 8 samples (approx 3 Hz)
+    n_smooth_rho defaults to 8 samples (approx 3 Hz). This is estimated from
+    coherence analysis of temperature and conductivity. It is a reasonable
+    comprimise between smoothing overturns and picking up noise
     """
+    prho = prho.copy()
+    z = z.copy()
 
     # Ensure no overturns involve first point (or cumsum wont have zeros)
     prho[0] = prho.min() - 1
@@ -518,7 +532,7 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds].data, z[inds].data)
+    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds])
     eps = 0.64*L_T**2*N2**(3/2)
 
     return eps, L_T
@@ -838,10 +852,11 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
 
     return G
 
-# if __name__ == '__main__':
-#     for i in np.r_[358]:
-#         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-#         print(data['eps_zavg'])
+
+if __name__ == '__main__':
+    for i in np.r_[200]:
+        xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
+        print(data['eps_zavg'])
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
     # ax1.plot(data['eps'], -data['z'])
     # ax1.set_xlim(-1E-8, 1E-6)
