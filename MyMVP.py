@@ -533,7 +533,7 @@ def calc_eps(p, prho, z):
 
     # Calc L_T and derive dissipation from parameterisation
     L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds])
-    eps = 0.64*L_T**2*N2**(3/2)
+    eps = L_T**2*N2**(3/2)
 
     return eps, L_T
 
