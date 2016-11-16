@@ -588,9 +588,13 @@ def bin_fields(D, z_bins, mask_nans=False):
         # Scalar fields don't need binning
         if key in ['eps_zavg']:
             grid[key] = D[key]
+
         else:
+            # Work around for extra masked values in dissipation
+            down_inds = down[~(D[key][down].mask)] if key is 'eps' else down
+
             grid[key] = bin_data(
-                D[key][down], D['z'][down], z_bins)
+                D[key][down_inds], D['z'][down_inds], z_bins)
         if mask_nans:
             grid[key] = ma.masked_invalid(grid[key])
 
