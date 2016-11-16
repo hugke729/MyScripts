@@ -261,7 +261,7 @@ def bin_data(data_to_bin, z, z_bins):
     """Bin data into z_bins by taking mean within the bins"""
     data_to_bin = ma.masked_invalid(data_to_bin)
     binned_data, _, _ = binned_statistic(
-        data_to_bin, z, bins=z_bins, statistic='mean')
+        z, data_to_bin, bins=z_bins, statistic='mean')
     return binned_data
 
 
@@ -590,7 +590,7 @@ def bin_fields(D, z_bins, mask_nans=False):
             grid[key] = D[key]
         else:
             grid[key] = bin_data(
-                D['z'][down], D[key][down], z_bins)
+                D[key][down], D['z'][down], z_bins)
         if mask_nans:
             grid[key] = ma.masked_invalid(grid[key])
 
@@ -854,9 +854,10 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
 
 
 if __name__ == '__main__':
-    for i in np.r_[200]:
+    for i in np.r_[371-56]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         print(data['eps_zavg'])
+        print(minmax(binned['eps']))
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
     # ax1.plot(data['eps'], -data['z'])
     # ax1.set_xlim(-1E-8, 1E-6)
