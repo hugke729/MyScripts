@@ -345,7 +345,7 @@ def m1_to_dict(filename, fields):
     return data
 
 
-def select_downcast(pressure):
+def select_downcast(pressure, for_overturn_calcs=False):
     """Find indices of the downcast part of data"""
     # Take the derivative of the pressure profile
     dp = np.diff(pressure)
@@ -356,7 +356,25 @@ def select_downcast(pressure):
     # Make the arrays the same size
     dp_smooth = np.append(dp_smooth, [0])
     # Find the indices where the descent rate is more than 0.05
-    down_inds = np.where(dp_smooth > 0.05)[0]
+    falling_inds = dp_smooth > 0.05
+
+    # Original method (that above) was not sufficient for overturn calculations
+    # Specifically, while the method correctly picked out the piece of the
+    # cast going down, it included bits where the fall rate was insufficiently
+    # smooth or accelerating
+    if for_overturn_calcs:
+        acceleration = central_diff_gradient(dp_smooth)
+        max_accel = np.max((4E-4, 0.9*acceleration.max()))
+        accel_inds = np.logical_and(
+            acceleration > -2E-4, acceleration < max_accel)
+        accel_inds_label = label(accel_inds)[0]
+        accel_inds[accel_inds_label != mode(accel_inds_label)[0]] = False
+
+    if for_overturn_calcs:
+        down_inds = np.where(np.logical_and(falling_inds, accel_inds))[0]
+    else:
+        down_inds = np.where(falling_inds)[0]
+
     return down_inds
 
 
@@ -469,7 +487,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     z = z.copy()
 
     # Ensure no overturns involve first point (or cumsum wont have zeros)
-    prho[0] = prho.min() - 1
+    prho[0] = prho.min() - 0.02
 
     # Smooth prho
     prho = smooth(prho-1000, n_smooth_rho)
@@ -492,30 +510,71 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     # Remove this simply by adding one
     overturn_starts += 1
 
+    min_dens_range = 1E-3
+
+    starts_to_rm = []
+    ends_to_rm = []
+
     # Plot where overturns start and end
     if plot_overturns:
-        fig, ax = plt.subplots()
-        ax.plot(prho, z, 'k')
-        ax.plot(prho[overturn_starts], z[overturn_starts], 'ro')
-        ax.plot(prho[overturn_ends], z[overturn_ends], 'bo')
-        ax.set_ylim(z.max(), 0)
+        fig, ax = plt.subplots(ncols=4, sharey=True)
+        ax[1].set(xlabel='Density range\nin overturn (kg/m3)')
+        ax[2].set(xlabel='R_o')
+        ax[0].set_ylim(z.max(), 0)
+        ax[3].set(xlabel='log dissipation')
+
+    for start_i, end_i in zip(overturn_starts, overturn_ends):
+        inds_i = np.s_[start_i:end_i]
+        density_range = np.ptp(prho[inds_i])
+        # Approximation of Ro given in Gargett and Garner (2008)
+        # Assumes constant profiling speed (good approx over size
+        # of overturn)
+        tdi = thorpe_disp[inds_i]
+        Ro = min([(tdi < 0).sum(), (tdi > 0).sum()])/tdi.size
+
+        if plot_overturns:
+            line, = ax[0].plot(prho[inds_i], z[inds_i], 'r')
+            col = 'r' if density_range < min_dens_range else 'k'
+            ax[1].plot(2*(density_range, ), minmax(z[inds_i]), color=col)
+
+            col = 'r' if Ro < 0.2 else 'k'
+            ax[2].plot(2*(Ro, ), minmax(z[inds_i]), color=col)
+
+            ax[0].legend([line], ['Overturn'])
+
+        if density_range < min_dens_range or Ro < 0.2:
+            starts_to_rm += [start_i]
+            ends_to_rm += [end_i]
+
+    overturn_starts = np.setdiff1d(overturn_starts, starts_to_rm)
+    overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
+
+    if plot_overturns:
+        ax[0].plot(prho, z, 'k')
+        ax[0].plot(prho[overturn_starts], z[overturn_starts], 'ro')
+        ax[0].plot(prho[overturn_ends], z[overturn_ends], 'bo')
 
     thorpe_scales = np.zeros_like(prho)
     N2 = np.zeros_like(prho)
     for start, end in zip(overturn_starts, overturn_ends):
 
-            prho_range = np.ptp(prho[start:end])  # Range over overturn
+        prho_range = np.ptp(prho[start:end])  # Range over overturn
 
-            # Noise checks
-            # Ignore overturn if its density range is less than 0.001 kg/m3
-            # or if only over distance of 1 sample (~25cm)
-            if (end - start == 1) or prho_range < 1E-3:
-                continue
+        # Noise checks
+        # Ignore overturn if its density range is less than 0.001 kg/m3
+        # or if only over distance of 1 sample (~25cm)
+        if (end - start == 1) or prho_range < 1E-3:
+            continue
 
-            zrms = np.std(thorpe_disp[start:end])
-            thorpe_scales[start:end] = zrms
-            dprho_dz = prho_range/np.ptp(z[start:end])
-            N2[start:end] = 9.81/np.mean(prho[start:end])*dprho_dz
+        zrms = np.std(thorpe_disp[start:end])
+        thorpe_scales[start:end] = zrms
+        dprho_dz = prho_range/np.ptp(z[start:end])
+        N2_in_overturn = 9.81/np.mean(prho[start:end])*dprho_dz
+        N2[start:end] = N2_in_overturn
+
+        if plot_overturns:
+            log_eps = np.log10(zrms**2*N2_in_overturn**(3/2))
+            ax[3].plot(np.ones_like(z[start:end])*log_eps, z[start:end], 'k')
 
     return thorpe_scales, N2
 
@@ -523,7 +582,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 def calc_eps(p, prho, z):
     """Calculate dissipation using Thorpe scale"""
 
-    down_inds = select_downcast(p)
+    down_inds = select_downcast(p, for_overturn_calcs=True)
     finite_inds = np.argwhere(~nan_or_masked(prho)).squeeze()
     inds = np.intersect1d(finite_inds, down_inds)
 
@@ -532,7 +591,7 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds])
+    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=True)
     eps = L_T**2*N2**(3/2)
 
     return eps, L_T
@@ -858,10 +917,12 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
 
 
 if __name__ == '__main__':
-    for i in np.r_[371-56]:
+    # for i in np.r_[371-57]:
+    # for i in np.r_[107, 109:120:3]:
+    for i in np.r_[107]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-        print(data['eps_zavg'])
-        print(minmax(binned['eps']))
+        # print(data['eps_zavg'])
+        # print(minmax(binned['eps']))
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
     # ax1.plot(data['eps'], -data['z'])
     # ax1.set_xlim(-1E-8, 1E-6)
