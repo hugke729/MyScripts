@@ -844,7 +844,7 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
     return G
 
 
-def combine_MVP_ADCP(mvp_dict, adcp_dict):
+def combine_MVP_ADCP(transect_name):
     """Put MVP and ADCP data on the same grid for individual transects
 
     This is useful for quantities that require velocity and density
@@ -866,6 +866,15 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
     -------
     Not the best near edge points
     """
+
+    mvp_processed_dir = '/home/hugke729/PhD/Data/Shipboard/MVP/transects/'
+    adcp_processed_dir = '/home/hugke729/PhD/Data/Shipboard/ADCP/processed/'
+
+    mvp_file = mvp_processed_dir + transect_name + '.p'
+    adcp_file = adcp_processed_dir + transect_name + '.p'
+
+    mvp_dict = pickle.load(open(mvp_file, 'rb'))
+    adcp_dict = pickle.load(open(adcp_file, 'rb'))
 
     # x coordinate based on where we have MVP data
     # I would rather interpolate ADCP data to MVP locations than vice versa
@@ -909,18 +918,25 @@ def combine_MVP_ADCP(mvp_dict, adcp_dict):
 
     u_along = interpolate_to_new_grid(adcp_dict['along_vel_s'], 'adcp')
 
+    filterwarnings('ignore', 'invalid value*.')
+    filterwarnings('ignore', '.*converting a masked element*.')
+
     G = calc_froude_number(
         u_along, mvp_dict['gprime'], mvp_dict['interface_depth'], z,
         mvp_dict['bottom'])
 
+    out_dict = dict(X=X, x=X[0, :], z=Z[:, 0], Z=Z, G=G)
+    out_dir = '/home/hugke729/PhD/Data/Shipboard/combined_mvp_adcp/'
+    pickle.dump(out_dict, open(out_dir + transect_name + '.p', 'wb'))
+
     return G
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[107]:
-        xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
+    # for i in np.r_[107]:
+    #     xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         # print(data['eps_zavg'])
         # print(minmax(binned['eps']))
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
