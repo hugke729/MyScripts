@@ -532,6 +532,9 @@ def bin_2d_transect(x, y, Z, x_out, y_out):
     Z_out : 2D array
         Shape (len(x_out) - 1, len(y_out) - 1)
     """
+    if Z.ndim == 1:
+        Z = Z[np.newaxis, :]
+
     # Preallocate result
     Nx, Ny = x_out.size - 1, y_out.size - 1
     Z_out = np.full((Nx, Ny), np.nan)
