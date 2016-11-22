@@ -518,13 +518,14 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     # Plot where overturns start and end
     if plot_overturns:
         fig, ax = plt.subplots(ncols=4, sharey=True)
-        ax[1].set(xlabel='Density range\nin overturn (kg/m3)')
-        ax[2].set(xlabel='R_o')
         ax[0].set_ylim(z.max(), 0)
+        ax[1].set(xlabel='Density range\nin overturn (10$^{-3}$ kg/m3)')
+        ax[2].set(xlabel='R_o')
         ax[3].set(xlabel='log dissipation')
 
     for start_i, end_i in zip(overturn_starts, overturn_ends):
         inds_i = np.s_[start_i:end_i]
+        inds_ip1 = np.s_[start_i:end_i+1]
         density_range = np.ptp(prho[inds_i])
         # Approximation of Ro given in Gargett and Garner (2008)
         # Assumes constant profiling speed (good approx over size
@@ -535,7 +536,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         if plot_overturns:
             line, = ax[0].plot(prho[inds_i], z[inds_i], 'r')
             col = 'r' if density_range < min_dens_range else 'k'
-            ax[1].plot(2*(density_range, ), minmax(z[inds_i]), color=col)
+            ax[1].plot(2*(density_range*1E3, ), minmax(z[inds_i]), color=col)
 
             col = 'r' if Ro < 0.2 else 'k'
             ax[2].plot(2*(Ro, ), minmax(z[inds_i]), color=col)
@@ -545,14 +546,18 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         if density_range < min_dens_range or Ro < 0.2:
             starts_to_rm += [start_i]
             ends_to_rm += [end_i]
+        else:
+            normalised_prho = (prho[inds_ip1] - prho[inds_ip1].min())/density_range
+            enlarged_prho = prho[inds_ip1][-1] + 0.02 + 0.2*normalised_prho
+            ax[0].plot(enlarged_prho, z[inds_ip1], 'k')
 
     overturn_starts = np.setdiff1d(overturn_starts, starts_to_rm)
     overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
 
     if plot_overturns:
         ax[0].plot(prho, z, 'k')
-        ax[0].plot(prho[overturn_starts], z[overturn_starts], 'ro')
-        ax[0].plot(prho[overturn_ends], z[overturn_ends], 'bo')
+        ax[0].plot(prho[overturn_starts], z[overturn_starts], 'r_')
+        ax[0].plot(prho[overturn_ends], z[overturn_ends], 'b_')
 
     thorpe_scales = np.zeros_like(prho)
     N2 = np.zeros_like(prho)
@@ -824,6 +829,8 @@ def two_layer_treatment(mvp_dict):
 def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
     """Calculate composite Froude number G"""
     G = np.full_like(gprime, np.nan)
+    top_u = np.full_like(gprime, np.nan)
+    bot_u = np.full_like(gprime, np.nan)
 
     for i, u_i in enumerate(along_u.T):
         top_layer_inds = adcp_z <= interface_depth[i]
@@ -833,14 +840,18 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
             # Insufficient data to calculate Froude number
             continue
 
-        top_u = ma.mean(u_i[top_layer_inds])
-        bot_u = ma.mean(u_i[bot_layer_inds])
+        top_u[i] = ma.mean(u_i[top_layer_inds])
+        bot_u[i] = ma.mean(u_i[bot_layer_inds])
 
-        G_squared = (top_u**2/(gprime[i]*interface_depth[i]) +
-                     bot_u**2/(gprime[i]*(seafloor[i] - interface_depth[i])))
+        G_squared = (top_u[i]**2/(gprime[i]*interface_depth[i]) +
+                     bot_u[i]**2/(gprime[i]*(seafloor[i] - interface_depth[i])))
 
         G[i] = np.sqrt(G_squared)
 
+    fig, ax = plt.subplots(nrows=2, sharex=True)
+    ax[0].plot(top_u, 'b')
+    ax[0].plot(bot_u, 'r')
+    ax[1].plot(seafloor)
     return G
 
 
@@ -932,13 +943,13 @@ def combine_MVP_ADCP(transect_name):
     return G
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    # for i in np.r_[107]:
-    #     xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-        # print(data['eps_zavg'])
-        # print(minmax(binned['eps']))
+    for i in np.r_[107]:
+        xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
+        print(data['eps_zavg'])
+        print(minmax(binned['eps']))
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
     # ax1.plot(data['eps'], -data['z'])
     # ax1.set_xlim(-1E-8, 1E-6)
