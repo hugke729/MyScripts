@@ -364,7 +364,7 @@ def select_downcast(pressure, for_overturn_calcs=False):
         # fall rate may drop below 0.05. In such cases without the code below
         # we would end up with discontinuous pieces of the profile
         inds_label = label(falling_inds)[0]
-        inds_label_mode = mode(inds_label)[0]
+        inds_label_mode = mode(inds_label[falling_inds])[0]
         falling_inds[inds_label != inds_label_mode] = False
 
     falling_inds = np.where(falling_inds)[0]
@@ -944,7 +944,7 @@ def combine_MVP_ADCP(transect_name):
 if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[107]:
+    for i in np.r_[129]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         print(data['eps_zavg'])
         print(minmax(binned['eps']))
