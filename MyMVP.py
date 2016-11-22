@@ -505,6 +505,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     overturn_starts += 1
 
     min_dens_range = 1E-3
+    min_N_samples = 4  # approx 1m in vertical
 
     starts_to_rm = []
     ends_to_rm = []
@@ -525,6 +526,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         # Assumes constant profiling speed (good approx over size
         # of overturn)
         tdi = thorpe_disp[inds_i]
+        print(len(tdi))
         Ro = min([(tdi < 0).sum(), (tdi > 0).sum()])/tdi.size
 
         if plot_overturns:
@@ -537,13 +539,21 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
             ax[0].legend([line], ['Overturn'])
 
-        if density_range < min_dens_range or Ro < 0.2:
+        # Noise checks
+        # Ignore overturn if
+        #     its density range is less than 0.001 kg/m3
+        #     if only over distance of 4 samples (~1m)
+        #     badly conditioned (as quantified by Ro)
+        if density_range < min_dens_range or Ro < 0.2 or len(tdi) <= min_N_samples:
             starts_to_rm += [start_i]
             ends_to_rm += [end_i]
         else:
-            normalised_prho = (prho[inds_ip1] - prho[inds_ip1].min())/density_range
-            enlarged_prho = prho[inds_ip1][-1] + 0.02 + 0.2*normalised_prho
-            ax[0].plot(enlarged_prho, z[inds_ip1], 'k')
+            # If it passes the test, plot enlarged version
+            if plot_overturns:
+                normalised_prho = (
+                    prho[inds_ip1] - prho[inds_ip1].min())/density_range
+                enlarged_prho = prho[inds_ip1][-1] + 0.02 + 0.2*normalised_prho
+                ax[0].plot(enlarged_prho, z[inds_ip1], 'k')
 
     overturn_starts = np.setdiff1d(overturn_starts, starts_to_rm)
     overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
@@ -558,12 +568,6 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     for start, end in zip(overturn_starts, overturn_ends):
 
         prho_range = np.ptp(prho[start:end])  # Range over overturn
-
-        # Noise checks
-        # Ignore overturn if its density range is less than 0.001 kg/m3
-        # or if only over distance of 1 sample (~25cm)
-        if (end - start == 1) or prho_range < 1E-3:
-            continue
 
         zrms = np.std(thorpe_disp[start:end])
         thorpe_scales[start:end] = zrms
