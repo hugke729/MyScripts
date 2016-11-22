@@ -480,6 +480,13 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     prho = prho.copy()
     z = z.copy()
 
+    # Doubly ensure z is monotonically increasing and last prho value is max
+    dz = central_diff_gradient(z)
+    if np.any(dz < 0):
+        prho = prho[dz > 0]
+        z = z[dz > 0]
+    prho[-1] = np.nanmax(prho) + 1E-6
+
     # Ensure no overturns involve first point (or cumsum wont have zeros)
     prho[0] = prho.min() - 0.02
 
@@ -526,7 +533,6 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         # Assumes constant profiling speed (good approx over size
         # of overturn)
         tdi = thorpe_disp[inds_i]
-        print(len(tdi))
         Ro = min([(tdi < 0).sum(), (tdi > 0).sum()])/tdi.size
 
         if plot_overturns:
@@ -536,8 +542,6 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
             col = 'r' if Ro < 0.2 else 'k'
             ax[2].plot(2*(Ro, ), minmax(z[inds_i]), color=col)
-
-            ax[0].legend([line], ['Overturn'])
 
         # Noise checks
         # Ignore overturn if
@@ -944,10 +948,10 @@ def combine_MVP_ADCP(transect_name):
 if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[129]:
+    for i in np.r_[500]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-        print(data['eps_zavg'])
-        print(minmax(binned['eps']))
+        print(np.log10(data['eps_zavg']))
+        print(np.log10(np.nanmax(binned['eps'])))
     # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
     # ax1.plot(data['eps'], -data['z'])
     # ax1.set_xlim(-1E-8, 1E-6)
