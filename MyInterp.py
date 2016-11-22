@@ -591,3 +591,7 @@ def fill_gaps_in_2d_transect(Z, n=1):
         Z = fill_gaps_in_2d_transect_once(Z)
 
     return Z
+
+
+def bin_1d_transect(x, z, x_out):
+    return bin_2d_transect(x, np.r_[0.5], z, x_out, np.r_[:2])

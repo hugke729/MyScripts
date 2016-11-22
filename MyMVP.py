@@ -358,25 +358,18 @@ def select_downcast(pressure, for_overturn_calcs=False):
     # Find the indices where the descent rate is more than 0.05
     falling_inds = dp_smooth > 0.05
 
-    # Original method (that above) was not sufficient for overturn calculations
-    # Specifically, while the method correctly picked out the piece of the
-    # cast going down, it included bits where the fall rate was insufficiently
-    # smooth or accelerating
     if for_overturn_calcs:
-        acceleration = central_diff_gradient(dp_smooth)
-        max_accel = np.max((4E-4, 0.9*acceleration.max()))
-        accel_inds = logical_all(
-            acceleration > -2E-4, acceleration < max_accel, dp_smooth > 0)
-        accel_inds_label = label(accel_inds)[0]
-        label_mode = mode(accel_inds_label[dp_smooth > 0])[0]
-        accel_inds[accel_inds_label != label_mode] = False
+        # For overturns, we want fall to be smooth.
+        # Therefore, we want to exclude portions near the surface where
+        # fall rate may drop below 0.05. In such cases without the code below
+        # we would end up with discontinuous pieces of the profile
+        inds_label = label(falling_inds)[0]
+        inds_label_mode = mode(inds_label)[0]
+        falling_inds[inds_label != inds_label_mode] = False
 
-    if for_overturn_calcs:
-        down_inds = np.where(np.logical_and(falling_inds, accel_inds))[0]
-    else:
-        down_inds = np.where(falling_inds)[0]
+    falling_inds = np.where(falling_inds)[0]
 
-    return down_inds
+    return falling_inds
 
 
 def lag_temperature(C, T, p):
@@ -947,7 +940,7 @@ def combine_MVP_ADCP(transect_name):
 if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[109]:
+    for i in np.r_[107]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         print(data['eps_zavg'])
         print(minmax(binned['eps']))

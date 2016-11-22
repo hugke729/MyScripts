@@ -4,6 +4,7 @@ Created on Mon Feb 23 14:57:23 2015
 
 @author: Ken
 """
+from inspect import getmembers, isclass
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,52 +32,86 @@ def splay_figures():
 
 def raster_and_save(fname, rasterize_list=None, fig=None, dpi=None,
                     savefig_kw={}):
-    """Like plt.savefig, but rasterizes anything in rasterize_list
+    """Save a figure with raster and vector components
 
-    Pass additional keywords to plt.savefig with savefig_kw
+    This function lets you specify which objects to rasterize at the export
+    stage, rather than within each plotting call. Rasterizing certain
+    components of a complex figure can significantly reduce file size.
 
-    Note: does not work correctly with round=True in Basemap"""
-    # My trial and error showed that need to set_rasterization_zorder
-    # in order for rasterizing to work properly
+    Inputs
+    ------
+    fname : str
+        Output filename with extension
+    rasterize_list : list (or object)
+        List of objects to rasterize (or a single object to rasterize)
+    fig : matplotlib figure object
+        Defaults to current figure
+    dpi : int
+        Resolution (dots per inch) for rasterizing
+    savefig_kw : dict
+        Extra keywords to pass to matplotlib.pyplot.savefig
 
+    If rasterize_list is not specified, then all contour, pcolor, and
+    collects objects (e.g., ``scatter, fill_between`` etc) will be
+    rasterized
+
+    Note: does not work correctly with round=True in Basemap
+
+    Example
+    -------
+    Rasterize the contour, pcolor, and scatter plots, but not the line
+
+    >>> from numpy.random import random
+    >>> X, Y, Z = random((9, 9)), random((9, 9)), random((9, 9))
+    >>> fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(ncols=2, nrows=2)
+    >>> cax1 = ax1.contourf(Z)
+    >>> cax2 = ax2.scatter(X, Y, s=Z)
+    >>> cax3 = ax3.pcolormesh(Z)
+    >>> cax4 = ax4.plot(Z[:, 0])
+    >>> rasterize_list = [cax1, cax2, cax3]
+    >>> raster_and_save('out.svg', rasterize_list, fig=fig, dpi=300)
+    """
+
+    # Behave like pyplot and act on current figure if no figure is specified
     fig = plt.gcf() if fig is None else fig
 
+    # Need to set_rasterization_zorder in order for rasterizing to work
     zorder = -5  # Somewhat arbitrary, just ensuring less than 0
 
     if rasterize_list is None:
         # Have a guess at stuff that should be rasterised
-        types_to_raster = ['QuadMesh', 'patches', 'Contour', 'collections']
+        types_to_raster = ['QuadMesh', 'Contour', 'collections']
         rasterize_list = []
 
-        print('No rasterize_list specified, so the following objects will')
-        print('be rasterized:')
+        print("""
+        No rasterize_list specified, so the following objects will
+        be rasterized: """)
         # Get all axes, and then get objects within axes
         for ax in fig.get_axes():
             for item in ax.get_children():
                 if any(x in str(item) for x in types_to_raster):
                     rasterize_list.append(item)
+        print('\n'.join([str(x) for x in rasterize_list]))
     else:
-        # Sometimes I forget to make rasterize_list a list, when only rasterizing
-        # one part of the figure. Can't hurt to ensure its a list
+        # Allow rasterize_list to be input as an object to rasterize
         rasterize_list = list(rasterize_list)
 
     for item in rasterize_list:
 
         # Whether or not plot is a contour plot is important
-        is_contour = hasattr(item, 'ax')
+        is_contour = isinstance(item, matplotlib.contour.QuadContourSet)
 
         # Whether or not collection of lines
+        # This is commented as we seldom want to rasterize lines
         # is_lines = isinstance(item, matplotlib.collections.LineCollection)
 
-        # Whether or not plot is a list of polygons
+        # Whether or not current item is list of patches
+        all_patch_types = tuple(
+            x[1] for x in getmembers(matplotlib.patches, isclass))
         try:
-            is_polygons = isinstance(item[0], matplotlib.patches.Polygon)
+            is_patch_list = isinstance(item[0], all_patch_types)
         except TypeError:
-            is_polygons = False
-
-        # Get current axis object and set it's z order
-        # curr_ax = item.ax.axes if is_contour else item.axes
-        # curr_ax.set_rasterization_zorder(zorder)
+            is_patch_list = False
 
         # Convert to rasterized mode and then change zorder properties
         if is_contour:
@@ -87,22 +122,22 @@ def raster_and_save(fname, rasterize_list=None, fig=None, dpi=None,
             for contour_level in item.collections:
                 contour_level.set_zorder(zorder - 1)
                 contour_level.set_rasterized(True)
-        elif is_polygons:
-            # For list of polygons, need to set each part polygon individually
-            for polygon in item:
-                curr_ax = polygon.axes
+        elif is_patch_list:
+            # For list of patches, need to set zorder for each patch
+            for patch in item:
+                curr_ax = patch.axes
                 curr_ax.set_rasterization_zorder(zorder)
-                polygon.set_zorder(zorder - 1)
-                polygon.set_rasterized(True)
+                patch.set_zorder(zorder - 1)
+                patch.set_rasterized(True)
         else:
-            # Otherwise, we can just do it all at once
+            # For all other objects, we can just do it all at once
             curr_ax = item.axes
             curr_ax.set_rasterization_zorder(zorder)
             item.set_rasterized(True)
             item.set_zorder(zorder - 1)
 
     # dpi is a savefig keyword argument, but treat it as special since it is
-    # probably the one I'll use all the time
+    # important to this function
     if dpi is not None:
         savefig_kw['dpi'] = dpi
 
@@ -110,10 +145,14 @@ def raster_and_save(fname, rasterize_list=None, fig=None, dpi=None,
     fig.savefig(fname, **savefig_kw)
 
 
-# Test raster and save
+# Test raster_and_save
 if __name__ is '__main__':
-    fig, (ax1, ax2) = plt.subplots(2)
-    cax1 = ax1.contourf(np.random.random((10, 10)))
-    cax2 = ax2.scatter(np.random.random((11, 11)), np.random.random((11, 11)),
-                       10*np.random.random((10, 10)))
-    plt.draw()
+    from numpy.random import random
+    X, Y, Z = random((9, 9)), random((9, 9)), random((9, 9))
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(ncols=2, nrows=2)
+    cax1 = ax1.contourf(Z)
+    cax2 = ax2.scatter(X, Y, s=Z)
+    cax3 = ax3.pcolormesh(Z)
+    cax4 = ax4.plot(Z[:, 0])
+    rasterize_list = [cax1, cax2, cax3]
+    raster_and_save('out.svg', rasterize_list, fig=fig, dpi=300)
