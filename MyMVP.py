@@ -21,7 +21,7 @@ from MyFunctions import (scalar_projection, angle, central_diff_gradient,
 from MyInterp import smooth1d_with_holes as smooth
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
-from MyNumpyTools import nan_or_masked, nan_or_masked_to_value
+from MyNumpyTools import nan_or_masked, nan_or_masked_to_value, logical_all
 from vertmodes import vertModes
 
 # Overview of functions
@@ -365,10 +365,11 @@ def select_downcast(pressure, for_overturn_calcs=False):
     if for_overturn_calcs:
         acceleration = central_diff_gradient(dp_smooth)
         max_accel = np.max((4E-4, 0.9*acceleration.max()))
-        accel_inds = np.logical_and(
-            acceleration > -2E-4, acceleration < max_accel)
+        accel_inds = logical_all(
+            acceleration > -2E-4, acceleration < max_accel, dp_smooth > 0)
         accel_inds_label = label(accel_inds)[0]
-        accel_inds[accel_inds_label != mode(accel_inds_label)[0]] = False
+        label_mode = mode(accel_inds_label[dp_smooth > 0])[0]
+        accel_inds[accel_inds_label != label_mode] = False
 
     if for_overturn_calcs:
         down_inds = np.where(np.logical_and(falling_inds, accel_inds))[0]
@@ -946,7 +947,7 @@ def combine_MVP_ADCP(transect_name):
 if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[107]:
+    for i in np.r_[109]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         print(data['eps_zavg'])
         print(minmax(binned['eps']))
