@@ -22,6 +22,7 @@ from MyInterp import smooth1d_with_holes as smooth
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
 from MyNumpyTools import nan_or_masked, nan_or_masked_to_value, logical_all
+from MyOceanography import intermediate_density_profile
 from vertmodes import vertModes
 
 # Overview of functions
@@ -492,6 +493,10 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     # Smooth prho
     prho = smooth(prho-1000, n_smooth_rho)
+
+    # Be extra cautious and calculate intermediate profile following
+    # Gargett and Garner (2008)
+    prho = intermediate_density_profile(prho, min_drho=5E-3)
 
     # Sort potential density
     inds = np.argsort(prho)
