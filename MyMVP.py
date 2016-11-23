@@ -115,7 +115,8 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
     # smoothing procedures, which would ruin diss calculation
     data['prho'], data['rho'] = calc_density(*get('S', 'T', 'p')(data))
     data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z_raw')(data))
-    data['eps_zavg'] = calc_eps_avg(*get('eps', 'z')(data))
+    data['eps_zavg'], data['eps_z_integral'] = calc_eps_avg(
+        data['eps'], data['z'], xyt['bottom'])
     data['theta'] = potential_temp(*get('S', 'T', 'p')(data))
     data['N2'] = calc_N2(*get('p', 'prho', 'z')(data))
 
@@ -165,7 +166,7 @@ def concatenate_binned_arrays(
     fields = ['p', 'z', 'SV', 'T', 'C', 'S', 'rho', 'prho', 'theta',
               'ANGL1', 'ANLG2', 'ANLG3', 'N2', 'L_T', 'eps',
               'hori_0', 'hori_1', 'hori_2', 'vert_0', 'vert_1', 'vert_2']
-    scalar_fields = ['eps_zavg', 'c0', 'c1', 'c2']
+    scalar_fields = ['eps_zavg', 'eps_z_integral' 'c0', 'c1', 'c2']
     xyt_fields = ['bottom', 'cast', 'date', 'lat', 'lon', 'time']
 
     Nx, Nz = end_n - start_n + 1, len(z_bins) - 1
@@ -496,7 +497,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     # Be extra cautious and calculate intermediate profile following
     # Gargett and Garner (2008)
-    prho = intermediate_density_profile(prho, min_drho=5E-3)
+    prho = intermediate_density_profile(prho, min_drho=1E-3)
 
     # Sort potential density
     inds = np.argsort(prho)
@@ -603,13 +604,13 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=True)
+    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=False)
     eps = L_T**2*N2**(3/2)
 
     return eps, L_T
 
 
-def calc_eps_avg(eps, z):
+def calc_eps_avg(eps, z, depth):
     """Depth-averaged dissipation rate"""
 
     # Total effective depth for depth average
@@ -618,7 +619,9 @@ def calc_eps_avg(eps, z):
     dz = np.insert(np.diff(z), 0, 0)
     eps_zavg = np.nansum(eps*dz)/depth_total
 
-    return eps_zavg
+    eps_z_integral = eps_zavg*depth
+
+    return eps_zavg, eps_z_integral
 
 
 def calc_modes(N2, bottom_depth, z_bins):
@@ -657,7 +660,7 @@ def bin_fields(D, z_bins, mask_nans=False):
 
     for key in fields:
         # Scalar fields don't need binning
-        if key in ['eps_zavg']:
+        if key in ['eps_zavg', 'eps_z_integral']:
             grid[key] = D[key]
 
         else:
@@ -951,17 +954,16 @@ def combine_MVP_ADCP(transect_name):
 
 
 if __name__ == '__main__':
-    # for i in np.r_[371-57]:
+    for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[400]:
-        xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-        print(np.log10(data['eps_zavg']))
-        print(np.log10(np.nanmax(binned['eps'])))
-    # fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True)
-    # ax1.plot(data['eps'], -data['z'])
-    # ax1.set_xlim(-1E-8, 1E-6)
-    # # ax2.plot(np.diff(smooth(data['prho'], 10)), data['z'][:-1]);
-    # ax2.plot(data['prho'] - 1000, -data['z'])
-    # ax2.plot(smooth(data['prho'], 3) - 1000, data['z'])
-    # flipy()
-    # ax2.plot((0, 0), (0, 300))
+    # for i in np.r_[180:1001:100]:
+        try:
+            xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
+        except IndexError:
+            pass
+        try:
+            print(np.log10(data['eps_zavg']))
+            print(np.log10(np.nanmax(binned['eps'])))
+        except RuntimeWarning:
+            print('0')
+            print('0')
