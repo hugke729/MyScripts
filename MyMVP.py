@@ -948,7 +948,7 @@ def combine_MVP_ADCP(transect_name):
 if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    for i in np.r_[500]:
+    for i in np.r_[400]:
         xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         print(np.log10(data['eps_zavg']))
         print(np.log10(np.nanmax(binned['eps'])))
