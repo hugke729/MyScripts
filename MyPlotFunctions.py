@@ -231,3 +231,12 @@ def pcolor_variable_y(x, Y, C, ax=None, **kwargs):
 
     # Each element of caxs is pretty much the same, so just return the first one
     return caxs[0]
+
+
+def get_xy_line_data(ax):
+    """Get all data on an axis corresponding to line plots"""
+    all_lines = [x for x in ax.get_children() if 'Line2D' in str(x)]
+    xdata = np.hstack([line.get_xdata() for line in all_lines])
+    ydata = np.hstack([line.get_ydata() for line in all_lines])
+
+    return xdata, ydata
