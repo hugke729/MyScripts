@@ -114,7 +114,7 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
     # early on, just to be safe, since the functions after that include
     # smoothing procedures, which would ruin diss calculation
     data['prho'], data['rho'] = calc_density(*get('S', 'T', 'p')(data))
-    data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z_raw')(data))
+    data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z')(data))
     data['eps_zavg'], data['eps_z_integral'] = calc_eps_avg(
         data['eps'], data['z'], xyt['bottom'])
     data['theta'] = potential_temp(*get('S', 'T', 'p')(data))
