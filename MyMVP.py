@@ -166,7 +166,7 @@ def concatenate_binned_arrays(
     fields = ['p', 'z', 'SV', 'T', 'C', 'S', 'rho', 'prho', 'theta',
               'ANGL1', 'ANLG2', 'ANLG3', 'N2', 'L_T', 'eps',
               'hori_0', 'hori_1', 'hori_2', 'vert_0', 'vert_1', 'vert_2']
-    scalar_fields = ['eps_zavg', 'eps_z_integral' 'c0', 'c1', 'c2']
+    scalar_fields = ['eps_zavg', 'eps_z_integral', 'c0', 'c1', 'c2']
     xyt_fields = ['bottom', 'cast', 'date', 'lat', 'lon', 'time']
 
     Nx, Nz = end_n - start_n + 1, len(z_bins) - 1
@@ -525,7 +525,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     # Plot where overturns start and end
     if plot_overturns:
-        fig, ax = plt.subplots(ncols=4, sharey=True)
+        fig, ax = plt.subplots(ncols=5, sharey=True)
         ax[0].set_ylim(z.max(), 0)
         ax[1].set(xlabel='Density range\nin overturn (10$^{-3}$ kg/m3)')
         ax[2].set(xlabel='R_o')
@@ -549,6 +549,9 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
             col = 'r' if Ro < 0.2 else 'k'
             ax[2].plot(2*(Ro, ), minmax(z[inds_i]), color=col)
 
+            ax[4].plot(tdi, z[inds_i], 'k')
+            ax[4].set(xlabel='Thorpe displacement (m)')
+
         # Noise checks
         # Ignore overturn if
         #     its density range is less than 0.001 kg/m3
@@ -569,6 +572,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
 
     if plot_overturns:
+        ax[0].plot(np.sort(prho), z, 'r')
         ax[0].plot(prho, z, 'k')
         ax[0].plot(prho[overturn_starts], z[overturn_starts], 'r_')
         ax[0].plot(prho[overturn_ends], z[overturn_ends], 'b_')
@@ -604,7 +608,7 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=False)
+    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=True)
     eps = L_T**2*N2**(3/2)
 
     return eps, L_T
@@ -954,16 +958,16 @@ def combine_MVP_ADCP(transect_name):
 
 
 if __name__ == '__main__':
-    for i in np.r_[371-57]:
+    # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
-    # for i in np.r_[180:1001:100]:
+    # for i in np.r_[180]:
+    for i in np.r_[550]:
         try:
             xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         except IndexError:
             pass
         try:
-            print(np.log10(data['eps_zavg']))
-            print(np.log10(np.nanmax(binned['eps'])))
+            print(np.log10(data['eps_z_integral']), end='  ')
+            print(np.log10(np.nanmean(binned['eps'])))
         except RuntimeWarning:
-            print('0')
-            print('0')
+            print('0  0')
