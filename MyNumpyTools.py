@@ -227,3 +227,11 @@ def uneven_2D_convolve(in1, x1, y1, in2, Nx=1000, Ny=1000):
     conv = RegularGridInterpolator((tmp_x1, tmp_y1), tmp_conv)((X1, Y1))
 
     return conv
+
+
+def next_pow_2(x):
+    return (2**np.ceil(np.log2(x))).astype(int)
+
+
+def prev_pow_2(x):
+    return (2**np.floor(np.log2(x))).astype(int)
