@@ -17,7 +17,7 @@ def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
     plt.draw()
 
 
-def intermediate_density_profile(rho, min_drho=1E-3):
+def intermediate_density_profile(rho, min_drho=1E-3, return_up_down=False):
     """Intermediate density profile following Gargett and Garner 2008
 
     doi:10.1175/2008JTECHO541.1"""
@@ -47,4 +47,7 @@ def intermediate_density_profile(rho, min_drho=1E-3):
 
     rho_intermediate = np.mean(np.c_[rho_up, rho_down], axis=1)
 
-    return rho_intermediate
+    if return_up_down:
+        return rho_intermediate, rho_up, rho_down
+    else:
+        return rho_intermediate
