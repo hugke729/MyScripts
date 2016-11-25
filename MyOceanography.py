@@ -48,6 +48,7 @@ def intermediate_density_profile(rho, min_drho=1E-3, return_up_down=False):
     rho_intermediate = np.mean(np.c_[rho_up, rho_down], axis=1)
 
     if return_up_down:
-        return rho_intermediate, rho_up, rho_down
+        # Odd problem with views into array means I need to copy output
+        return rho_intermediate, rho_up.copy(), rho_down.copy()
     else:
         return rho_intermediate
