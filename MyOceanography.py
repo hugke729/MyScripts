@@ -30,7 +30,7 @@ def intermediate_density_profile(rho, min_drho=1E-3, return_up_down=False):
 
     for i, (rho_i, rho_ip1) in enumerate(zip(rho, rho[1:])):
         if abs(rho_ip1 - rho_down[i]) > min_drho:
-            rho_down[i+1] = rho_ip1
+            rho_down[i+1] = rho_i
         else:
             rho_down[i+1] = rho_down[i]
 
