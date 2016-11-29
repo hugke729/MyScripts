@@ -3,6 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from MyNumpyTools import minmax
+from MyFunctions import flatten2Dlist
 
 
 def rm_x_axis(ax=None):
@@ -240,3 +241,20 @@ def get_xy_line_data(ax):
     ydata = np.hstack([line.get_ydata() for line in all_lines])
 
     return xdata, ydata
+
+
+def get_all_handles_labels(axs):
+    """Get all handles and labels of lines with a label property
+
+    Useful for custom legend"""
+
+    handles = np.array(flatten2Dlist(
+        [ax.get_legend_handles_labels()[0] for ax in axs]))
+    labels = np.array(flatten2Dlist(
+        [ax.get_legend_handles_labels()[1] for ax in axs]))
+
+    labels, inds = np.unique(labels, return_index=True)
+    handles = list(handles[inds])
+    labels = list(labels)
+
+    return handles, labels
