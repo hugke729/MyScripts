@@ -1,8 +1,10 @@
+from warnings import filterwarnings
 import numpy as np
 import numpy.ma as ma
 import os
 from subprocess import check_output
 from scipy import ndimage as nd
+from scipy.interpolate import RegularGridInterpolator as rgi
 from MITgcmutils import rdmds
 from MyGrids import Grid
 
@@ -29,17 +31,25 @@ def write_for_mitgcm(filename_in, array_in):
         f.write(array_in)
 
 
-def remove_nans_laterally(array):
+def remove_nans_laterally(array, inverted_dimensions=False):
     """Get rid of NaNs by copying nearest adjacent value or column for 3D
 
-    Assumes first two dimensions of array are x and y
+    Assumes first two dimensions of array are x and y, unless
+    `inverted_dimensions` is `True`, in which case last two dimensions are
+    y and x.
 
     Idea from stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
     """
     # Nx, Ny = array.shape[:2]
 
+    if inverted_dimensions:
+        array = array.T
+
     if array.ndim == 2:
+        new_dim_added = True
         array = array[..., np.newaxis]
+    else:
+        new_dim_added = False
 
     nans = np.isnan(array[..., 0])
 
@@ -53,9 +63,13 @@ def remove_nans_laterally(array):
         array[..., i] = array[..., i][tuple(inds)]
 
     # Remove introduced dimension if necessary
-    array = array.squeeze()
+    if new_dim_added:
+        array = array.squeeze()
 
-    return array
+    if inverted_dimensions:
+        return array.T
+    else:
+        return array
 
 
 def xc_to_xg(xc):
@@ -185,7 +199,7 @@ def get_run_settings(output_file):
     return D
 
 
-def get_grid(run_dir, x0=0, y0=0):
+def get_grid(run_dir, x0=0, y0=0, hFacs=True):
     """Create a Grid object from model's output grid files
 
     Inputs
@@ -194,6 +208,8 @@ def get_grid(run_dir, x0=0, y0=0):
         Full path to model's run directory
     x0, y0 : floats
         Distances from origin
+    hfacs : bool
+        Whether to read in hFacs
     """
     dx = rdmds(run_dir + 'DXG*')[0, :]
     dy = rdmds(run_dir + 'DYG*')[:, 0]
@@ -202,4 +218,152 @@ def get_grid(run_dir, x0=0, y0=0):
     g = Grid(dx, dy, dz, x0=x0, y0=y0)
     g.depth = rdmds(run_dir + 'Depth*')
 
+    if hFacs:
+        g.hFacS = rdmds(run_dir + 'hFacS')
+        g.hFacW = rdmds(run_dir + 'hFacW')
+        g.hFacC = rdmds(run_dir + 'hFacC')
+
     return g
+
+
+def add_border_values(X):
+    """Add a border of values by copying the first and last lines in the
+    array in each dimension and prepending/appending
+
+    Result is a new array increased by 2 cells in each dimension
+
+    This is useful for accounting for region between centre and face of cells
+    at the edge of a domain
+
+    Input
+    -----
+    X : numpy array
+        Dimensions should be ordered (z, y, x)
+    """
+    if X.ndim == 1:
+        tmp_X = np.zeros(X.size + 2)
+        tmp_X[1:-1] = X
+        tmp_X[0], tmp_X[-1] = X[0], X[-1]
+
+    elif X.ndim == 2:
+        shape = np.array(X.shape) + np.r_[2, 2]
+        tmp_X = np.zeros(shape)
+        tmp_X[1:-1, 1:-1] = X
+        tmp_X[0, :], tmp_X[-1, :] = tmp_X[1, :], tmp_X[-2, :]
+        tmp_X[:, 0], tmp_X[:, -1] = tmp_X[:, 1], tmp_X[:, -2]
+
+    elif X.ndim == 3:
+        shape = np.array(X.shape) + np.r_[2, 2, 2]
+        tmp_X = np.zeros(shape)
+        tmp_X[1:-1, 1:-1, 1:-1] = X
+        tmp_X[0, :, :], tmp_X[-1, :, :] = tmp_X[1, :, :], tmp_X[-2, :, :]
+        tmp_X[:, 0, :], tmp_X[:, -1, :] = tmp_X[:, 1, :], tmp_X[:, -2, :]
+        tmp_X[:, :, 0], tmp_X[:, :, -1] = tmp_X[:, :, 1], tmp_X[:, :, -2]
+
+    return tmp_X
+
+
+def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
+    """
+    Takes outputs U, V, T, S, Eta and interpolates them onto new grid
+
+    Assumes both grids are 3D and Cartesian.
+
+    Results for 2D aren't quite right. Interpolation falls back to nearest
+    neighbour where it should be linear.
+
+    Inputs
+    ------
+    run_dir : str
+        Directory containing output
+    last_iter : int
+        The number in the output filenames that are to be interpolated
+        For example, for T.00000360000.data, last_iter is 36000
+    new_grid : Grid instance
+        Grid from MyGrids.Grid
+
+    Notes
+    -----
+    Not set up to work with OBCS (hFacs are not dealt with correctly)
+    """
+    # filterwarnings('ignore', '.*invalid value encountered in true_divide')
+    # filterwarnings('ignore', '.*invalid value encountered in less_equal')
+
+    # Helper function
+    def get_coord(grid, coord_str):
+        """get_coord(g, 'xc') returns g.xc or None if g has no attribute xc
+        Remove extra value for xf and yf, since that's what's need in outer
+        function"""
+        try:
+            out = getattr(grid, coord_str)
+            if coord_str in ['xf', 'yf']:
+                out = out[:-1]
+            return out.copy()
+        except TypeError:
+            return None
+
+    # Input and output grids
+    run_dir = os.path.normpath(run_dir) + os.sep
+    g_in = get_grid(run_dir)
+    g_out = new_grid
+
+    coord_sys = dict(
+        U=('xf', 'yc', 'zc', 'hFacW'), V=('xc', 'yf', 'zc', 'hFacS'),
+        T=('xc', 'yc', 'zc', 'hFacC'), S=('xc', 'yc', 'zc', 'hFacC'),
+        Eta=('xc', 'yc', None, 'hFacC'))
+
+    # Preallocate dict that is returned
+    all_outputs = {}
+
+    for k, (x, y, z, h) in coord_sys.items():
+        threeD = False if k is 'Eta' else True
+
+        # Read in all grids for current quantity
+        xi, yi, zi, hi = [get_coord(g_in, q) for q in (x, y, z, h)]
+        hi = hi[0, ...] if not threeD else hi
+
+        # Read actual output
+        fname = run_dir + k + '*'
+        quantity = rdmds(fname, last_iter)
+
+        # Convert zeros to NaN for values that aren't water
+        # This is really important for T and S, where the average of say 35
+        # and 0 is unphysical. For U and V, it's not as important but still
+        # worthwhile
+        quantity[hi == 0] = np.nan
+
+        # Add a border around output to avoid problems with regions between
+        # the centre of the first and last cells in a given dimension and the
+        # edge of the domain
+        quantity = add_border_values(quantity)
+
+        # Add in associated values to x, y, z
+        xp2 = np.r_[xi[0] - g.dx[0], xi, xi[-1] + g.dx[-1]]
+        yp2 = np.r_[yi[0] - g.dy[0], yi, yi[-1] + g.dy[-1]]
+        zp2 = np.r_[zi[0] - g.dz[0], zi, zi[-1] + g.dz[-1]] if threeD else None
+
+        # Grid associated with added border
+        pts_in = (zp2, yp2, xp2) if threeD else (yp2, xp2)
+
+        # Linear interpolator
+        interp_input = dict(points=pts_in, values=quantity,
+                            bounds_error=False, fill_value=None)
+        f_lin = rgi(method='linear', **interp_input)
+
+        # Output grids
+        xo, yo, zo = [get_coord(g_out, q) for q in (x, y, z)]
+        if threeD:
+            Zo, Yo, Xo = np.meshgrid(zo, yo, xo, indexing='ij')
+        else:
+            Yo, Xo = np.meshgrid(yo, xo, indexing='ij')
+
+        pts_out = (Zo, Yo, Xo) if threeD else (Yo, Xo)
+
+        lin_out = f_lin(pts_out)
+
+        # Fill any remaining gaps
+        lin_out = remove_nans_laterally(lin_out, inverted_dimensions=True)
+
+        all_outputs[k] = lin_out
+
+    return all_outputs
