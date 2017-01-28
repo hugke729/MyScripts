@@ -94,7 +94,8 @@ def raster_and_save(fname, rasterize_list=None, fig=None, dpi=None,
         print('\n'.join([str(x) for x in rasterize_list]))
     else:
         # Allow rasterize_list to be input as an object to rasterize
-        rasterize_list = [rasterize_list]
+        if type(rasterize_list) != list:
+            rasterize_list = [rasterize_list]
 
     for item in rasterize_list:
 
