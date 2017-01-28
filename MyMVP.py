@@ -21,7 +21,8 @@ from MyFunctions import (scalar_projection, angle, central_diff_gradient,
 from MyInterp import smooth1d_with_holes as smooth
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
-from MyNumpyTools import nan_or_masked, nan_or_masked_to_value, logical_all
+from MyNumpyTools import (nan_or_masked, nan_or_masked_to_value, logical_all,
+                          minmax)
 from MyOceanography import intermediate_density_profile
 from vertmodes import vertModes
 
@@ -530,6 +531,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         ax[1].set(xlabel='Density range\nin overturn (10$^{-3}$ kg/m3)')
         ax[2].set(xlabel='R_o')
         ax[3].set(xlabel='log dissipation')
+        ax[4].plot(thorpe_disp, z)
 
     for start_i, end_i in zip(overturn_starts, overturn_ends):
         inds_i = np.s_[start_i:end_i]
@@ -538,7 +540,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         # Approximation of Ro given in Gargett and Garner (2008)
         # Assumes constant profiling speed (good approx over size
         # of overturn)
-        tdi = thorpe_disp[inds_i]
+        tdi = thorpe_disp[inds_ip1]
         Ro = min([(tdi < 0).sum(), (tdi > 0).sum()])/tdi.size
 
         if plot_overturns:
@@ -549,7 +551,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
             col = 'r' if Ro < 0.2 else 'k'
             ax[2].plot(2*(Ro, ), minmax(z[inds_i]), color=col)
 
-            ax[4].plot(tdi, z[inds_i], 'k')
+            ax[4].plot(tdi, z[inds_ip1], 'r')
             ax[4].set(xlabel='Thorpe displacement (m)')
 
         # Noise checks
@@ -608,7 +610,7 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=True)
+    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=False)
     eps = L_T**2*N2**(3/2)
 
     return eps, L_T
@@ -961,12 +963,13 @@ if __name__ == '__main__':
     # for i in np.r_[371-57]:
     # for i in np.r_[107, 109:120:3]:
     # for i in np.r_[180]:
-    for i in np.r_[550]:
+    for i in np.r_[400]:
         try:
             xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
         except IndexError:
             pass
         try:
+            print((data['eps'] > 0).sum(), end=' ')
             print(np.log10(data['eps_z_integral']), end='  ')
             print(np.log10(np.nanmean(binned['eps'])))
         except RuntimeWarning:
