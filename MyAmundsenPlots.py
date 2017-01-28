@@ -223,7 +223,8 @@ def TS_cmap(direc):
     return cmap
 
 
-def add_water_masses(ax, water_mass_list=[], show_markers=True, alpha=0.5):
+def add_water_masses(ax, water_mass_list=[], show_markers=True, alpha=0.5,
+                     show_legend=True):
     """Add patches and scatter points showing different water masses
 
     Water masses derived from Kliem and Greenberg (2003)
@@ -277,12 +278,15 @@ def add_water_masses(ax, water_mass_list=[], show_markers=True, alpha=0.5):
     names = [name.replace('Caa', 'CAA') for name in names]
 
     # Add legend below plot
-    L, B, W, H = pos(ax)
-    ax_leg = ax.get_figure().add_axes((L, 0.01, W, 0.06))
-    ax_leg.legend(patches, names, ncol=2, frameon=False)
-    ax_leg.axis('off')
+    if show_legend:
+        L, B, W, H = pos(ax)
+        ax_leg = ax.get_figure().add_axes((L, 0.01, W, 0.06))
+        ax_leg.legend(patches, names, ncol=2, frameon=False)
+        ax_leg.axis('off')
 
     plt.draw()
+
+    return names, patches
 
 
 def TS_diagram(ax, S, T, dist2d, direc=1, vmin=None, vmax=None,
