@@ -214,14 +214,14 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True):
     dx = rdmds(run_dir + 'DXG*')[0, :]
     dy = rdmds(run_dir + 'DYG*')[:, 0]
     dz = rdmds(run_dir + 'DRF*')[:, 0]
-
-    g = Grid(dx, dy, dz, x0=x0, y0=y0)
-    g.depth = rdmds(run_dir + 'Depth*')
+    added_attrs = dict(depth=rdmds(run_dir + 'Depth*').squeeze())
 
     if hFacs:
-        g.hFacS = rdmds(run_dir + 'hFacS')
-        g.hFacW = rdmds(run_dir + 'hFacW')
-        g.hFacC = rdmds(run_dir + 'hFacC')
+        added_attrs['hFacS'] = rdmds(run_dir + 'hFacS').squeeze()
+        added_attrs['hFacW'] = rdmds(run_dir + 'hFacW').squeeze()
+        added_attrs['hFacC'] = rdmds(run_dir + 'hFacC').squeeze()
+
+    g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
 
     return g
 
@@ -367,3 +367,28 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
         all_outputs[k] = lin_out
 
     return all_outputs
+
+
+# if __name__ == '__main__':
+#     run_dir = '/home/hugke729/mitgcm/myruns/test_hfacs/run/'
+#     g = get_grid(run_dir)
+#     dx_new = np.ones(120)*200/2
+#     dz_new = np.ones(41)*5
+#     gout = Grid(dx_new, g.dy, dz_new)
+
+#     T = rdmds(run_dir + 'T*', [100]).squeeze()
+#     U = rdmds(run_dir + 'U*', [100]).squeeze()
+#     Eta = rdmds(run_dir + 'Eta*', [100]).squeeze()
+#     out = interpolate_output_to_new_grid(run_dir, 100, gout)
+
+#     fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
+#     cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(U, 0), cmap='jet')
+#     axs[1].pcolormesh(gout.xf, gout.zf,
+#                       ma.masked_invalid(out['U'].squeeze()), cmap='jet')
+#     # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
+#     # axs[1].pcolormesh(gout.xf, gout.zf,
+#     #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
+#     # axs[0].plot(g.xc, Eta, 'ko-')
+#     # axs[1].plot(gout.xc, out['Eta'].squeeze(), 'ko-')
+#     fig.colorbar(cax)
+#     flipy()

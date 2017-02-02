@@ -377,9 +377,15 @@ class Grid:
     dy : 1D array
     dz : 1D array (optional)
     m : Basemap object
+    x0 : float
+        Left end of grid relative to m.xmin
+    y0 : flat
+        Bottom of grid relative to m.ymin
+    extra_attrs : dict
+        Extra attributes to pass to grid (e.g., hFacs or depth)
     """
 
-    def __init__(self, dx, dy, dz=1, m=None, x0=0, y0=0):
+    def __init__(self, dx, dy, dz=1, m=None, x0=0, y0=0, added_attrs=dict()):
         self.dx = dx
         self.dy = dy
         self.dz = dz
@@ -388,6 +394,8 @@ class Grid:
         self.mesh()
         self.to_kms()
         self.Ns()
+        self.added_attrs = added_attrs.keys()
+        self.add_extra_attrs(added_attrs)
         if m is not None:
             self.m = m
             self.latlon(self.m)
@@ -403,8 +411,9 @@ class Grid:
         y_attrs = sort_attrs('y')
         z_attrs = sort_attrs('z')
         geo_attrs = sort_attrs('lon') + sort_attrs('lat')
-        attr_table = '\n'.join(
-            [s for s in [x_attrs, y_attrs, z_attrs, geo_attrs]])
+        added_attrs = ' '.join(self.added_attrs)
+        all_attrs = [x_attrs, y_attrs, z_attrs, geo_attrs, added_attrs]
+        attr_table = '\n'.join([s for s in all_attrs if s != ''])
         return 'Grid object with attributes: \n' + attr_table
 
     def calc_faces(self, x0, y0):
@@ -434,6 +443,11 @@ class Grid:
         self.Ny = len(self.yc)
         self.Nz = len(self.zc)
 
+    def add_extra_attrs(self, added_attrs):
+        for k, v in added_attrs.items():
+            setattr(self, k, v)
+
     def latlon(self, m):
         self.LONc, self.LATc = self.m(self.Xc, self.Yc, inverse=True)
         self.LONf, self.LATf = self.m(self.Xf, self.Yf, inverse=True)
+
