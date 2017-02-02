@@ -19,6 +19,12 @@ def sind(angle):
     return out
 
 
+def tand(angle):
+    """sine with argument in degrees"""
+    out = np.tan(np.deg2rad(angle))
+    return out
+
+
 def minmax(x, axis=None, astype='float'):
     """returns tuple (min(x), max(x)) while ignoring nans"""
     extrema = (np.nanmin(x, axis=axis).astype(astype),
