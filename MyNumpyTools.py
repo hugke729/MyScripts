@@ -20,7 +20,7 @@ def sind(angle):
 
 
 def tand(angle):
-    """sine with argument in degrees"""
+    """tan with argument in degrees"""
     out = np.tan(np.deg2rad(angle))
     return out
 
@@ -30,6 +30,11 @@ def minmax(x, axis=None, astype='float'):
     extrema = (np.nanmin(x, axis=axis).astype(astype),
                np.nanmax(x, axis=axis).astype(astype))
     return extrema
+
+
+def demean_ma(x, axis=None):
+    """Like matplotlib.mlab's detrend_mean but works for masked arrays"""
+    return x - x.mean(axis=axis)
 
 
 def nan_or_masked(arr):
