@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from mpl_toolkits.basemap import Basemap
 import numpy as np
 import pickle
 from cycler import cycler
@@ -216,6 +217,11 @@ def disp_latlon(ax, m, form='dd', xyz=None):
     xyz: tuple of X, Y, Z where X, Y are 2D cartesian grids with z having
     the corresponding depths
     """
+
+    # Let me put first two arguments in wrong order
+    if type(ax) is Basemap:
+        ax, m = m, ax
+
     def format_coord(x, y):
         """Create string showing lat/lon and x/y in km"""
         lon, lat = m(x, y, inverse=True)
