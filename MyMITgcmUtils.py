@@ -9,11 +9,14 @@ from MITgcmutils import rdmds
 from MyGrids import Grid
 
 
-def write_for_mitgcm(filename_in, array_in):
+def write_for_mitgcm(filename_in, array_in, prec=64):
     import sys
     # Converts array_in to column major (aka fortran) ordering and
     # big endian format.
     # Result is written on file_in
+
+    if prec == 32:
+        array_in = array_in.astype('float32')
 
     # Ensure no NaN or masked values
     if ma.isMaskedArray(array_in):
