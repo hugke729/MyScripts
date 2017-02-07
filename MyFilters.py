@@ -5,13 +5,11 @@ import numpy as np
 
 # http://stackoverflow.com/questions/12093594/
 # how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
+# Note difference here is to not express cutoffs as fraction of Nyquist freq
 
 
 def butter_bandpass(lowcut, highcut, Fs, order=5):
-    nyq = 0.5 * Fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
+    b, a = butter(order, [lowcut, highcut], btype='band')
     return b, a
 
 
@@ -24,9 +22,7 @@ def butter_bandpass_filter(data, lowcut, highcut, Fs, order=5, plot_filter=False
 
 
 def butter_highpass(highcut, Fs, order=5):
-    nyq = 0.5 * Fs
-    high = highcut / nyq
-    b, a = butter(order, high, btype='highpass')
+    b, a = butter(order, highcut, btype='highpass')
     return b, a
 
 
@@ -39,9 +35,7 @@ def butter_highpass_filter(data, highcut, Fs, order=5, plot_filter=False):
 
 
 def butter_lowpass(lowcut, Fs, order=5):
-    nyq = 0.5 * Fs
-    low = lowcut / nyq
-    b, a = butter(order, low, btype='lowpass')
+    b, a = butter(order, lowcut, btype='lowpass')
     return b, a
 
 
