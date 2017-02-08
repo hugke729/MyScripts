@@ -373,15 +373,19 @@ class Grid:
 
     Inputs
     ------
-    dx : 1D array
-    dy : 1D array
-    dz : 1D array (optional)
-    m : Basemap object
-    x0 : float
+    dx: 1D array
+        dx in metres
+    dy: 1D array
+        dy in metres
+    dz: 1D array
+        Optional
+    m: Basemap object
+        Optional
+    x0: float
         Left end of grid relative to m.xmin
-    y0 : flat
+    y0: float
         Bottom of grid relative to m.ymin
-    extra_attrs : dict
+    extra_attrs: dict
         Extra attributes to pass to grid (e.g., hFacs or depth)
     """
 
@@ -394,8 +398,9 @@ class Grid:
         self.mesh()
         self.to_kms()
         self.Ns()
-        self.added_attrs = added_attrs.keys()
-        self.add_extra_attrs(added_attrs)
+        # Convert added attrs to tuple to allow pickling
+        self.added_attrs = tuple((k, v) for k, v in added_attrs.items())
+        self.add_extra_attrs(self.added_attrs)
         if m is not None:
             self.m = m
             self.latlon(self.m)
@@ -411,7 +416,7 @@ class Grid:
         y_attrs = sort_attrs('y')
         z_attrs = sort_attrs('z')
         geo_attrs = sort_attrs('lon') + sort_attrs('lat')
-        added_attrs = ' '.join(self.added_attrs)
+        added_attrs = ' '.join(dict(self.added_attrs).keys())
         all_attrs = [x_attrs, y_attrs, z_attrs, geo_attrs, added_attrs]
         attr_table = '\n'.join([s for s in all_attrs if s != ''])
         return 'Grid object with attributes: \n' + attr_table
@@ -444,10 +449,9 @@ class Grid:
         self.Nz = len(self.zc)
 
     def add_extra_attrs(self, added_attrs):
-        for k, v in added_attrs.items():
+        for k, v in list(added_attrs):
             setattr(self, k, v)
 
     def latlon(self, m):
         self.LONc, self.LATc = self.m(self.Xc, self.Yc, inverse=True)
         self.LONf, self.LATf = self.m(self.Xf, self.Yf, inverse=True)
-
