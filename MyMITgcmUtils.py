@@ -202,17 +202,19 @@ def get_run_settings(output_file):
     return D
 
 
-def get_grid(run_dir, x0=0, y0=0, hFacs=True):
+def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True):
     """Create a Grid object from model's output grid files
 
     Inputs
     ------
-    run_dir : str
+    run_dir: str
         Full path to model's run directory
-    x0, y0 : floats
+    x0, y0: floats
         Distances from origin
-    hfacs : bool
+    hfacs: bool
         Whether to read in hFacs
+    squeeze_hfacs: bool
+        Whether to remove singleton dimensions from hfacs
     """
     dx = rdmds(run_dir + 'DXG*')[0, :]
     dy = rdmds(run_dir + 'DYG*')[:, 0]
@@ -220,9 +222,9 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True):
     added_attrs = dict(depth=rdmds(run_dir + 'Depth*').squeeze())
 
     if hFacs:
-        added_attrs['hFacS'] = rdmds(run_dir + 'hFacS').squeeze()
-        added_attrs['hFacW'] = rdmds(run_dir + 'hFacW').squeeze()
-        added_attrs['hFacC'] = rdmds(run_dir + 'hFacC').squeeze()
+        for k in ['S', 'W', 'C']:
+            tmp = rdmds(run_dir + 'hFac' + k)
+            added_attrs['hFac' + k] = tmp.squeeze() if squeeze_hfacs else tmp
 
     g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
 
@@ -307,7 +309,7 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
 
     # Input and output grids
     run_dir = os.path.normpath(run_dir) + os.sep
-    g_in = get_grid(run_dir)
+    g_in = get_grid(run_dir, squeeze_hfacs=False)
     g_out = new_grid
 
     coord_sys = dict(
@@ -341,9 +343,9 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
         quantity = add_border_values(quantity)
 
         # Add in associated values to x, y, z
-        xp2 = np.r_[xi[0] - g.dx[0], xi, xi[-1] + g.dx[-1]]
-        yp2 = np.r_[yi[0] - g.dy[0], yi, yi[-1] + g.dy[-1]]
-        zp2 = np.r_[zi[0] - g.dz[0], zi, zi[-1] + g.dz[-1]] if threeD else None
+        xp2 = np.r_[xi[0] - g_in.dx[0], xi, xi[-1] + g_in.dx[-1]]
+        yp2 = np.r_[yi[0] - g_in.dy[0], yi, yi[-1] + g_in.dy[-1]]
+        zp2 = np.r_[zi[0] - g_in.dz[0], zi, zi[-1] + g_in.dz[-1]] if threeD else None
 
         # Grid associated with added border
         pts_in = (zp2, yp2, xp2) if threeD else (yp2, xp2)
@@ -372,26 +374,26 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
     return all_outputs
 
 
-# if __name__ == '__main__':
-#     run_dir = '/home/hugke729/mitgcm/myruns/test_hfacs/run/'
-#     g = get_grid(run_dir)
-#     dx_new = np.ones(120)*200/2
-#     dz_new = np.ones(41)*5
-#     gout = Grid(dx_new, g.dy, dz_new)
+if __name__ == '__main__':
+    run_dir = '/home/hugke729/mitgcm/test_cases/hfacs/run/'
+    g = get_grid(run_dir)
+    dx_new = np.ones(120)*200/2
+    dz_new = np.ones(41)*5
+    gout = Grid(dx_new, g.dy, dz_new)
 
-#     T = rdmds(run_dir + 'T*', [100]).squeeze()
-#     U = rdmds(run_dir + 'U*', [100]).squeeze()
-#     Eta = rdmds(run_dir + 'Eta*', [100]).squeeze()
-#     out = interpolate_output_to_new_grid(run_dir, 100, gout)
+    T = rdmds(run_dir + 'T*', [100]).squeeze()
+    U = rdmds(run_dir + 'U*', [100]).squeeze()
+    Eta = rdmds(run_dir + 'Eta*', [100]).squeeze()
+    out = interpolate_output_to_new_grid(run_dir, 100, gout)
 
-#     fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
-#     cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(U, 0), cmap='jet')
-#     axs[1].pcolormesh(gout.xf, gout.zf,
-#                       ma.masked_invalid(out['U'].squeeze()), cmap='jet')
-#     # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
-#     # axs[1].pcolormesh(gout.xf, gout.zf,
-#     #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
-#     # axs[0].plot(g.xc, Eta, 'ko-')
-#     # axs[1].plot(gout.xc, out['Eta'].squeeze(), 'ko-')
-#     fig.colorbar(cax)
-#     flipy()
+    fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
+    cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(U, 0), cmap='jet')
+    axs[1].pcolormesh(gout.xf, gout.zf,
+                      ma.masked_invalid(out['U'].squeeze()), cmap='jet')
+    # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
+    # axs[1].pcolormesh(gout.xf, gout.zf,
+    #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
+    # axs[0].plot(g.xc, Eta, 'ko-')
+    # axs[1].plot(gout.xc, out['Eta'].squeeze(), 'ko-')
+    fig.colorbar(cax)
+    flipy()
