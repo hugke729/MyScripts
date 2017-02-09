@@ -43,10 +43,8 @@ def remove_nans_laterally(array, inverted_dimensions=False):
 
     Idea from stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
     """
-    # Nx, Ny = array.shape[:2]
 
-    if inverted_dimensions:
-        array = array.T
+    array = array.T if inverted_dimensions else array
 
     if array.ndim == 2:
         new_dim_added = True
@@ -54,25 +52,18 @@ def remove_nans_laterally(array, inverted_dimensions=False):
     else:
         new_dim_added = False
 
-    nans = np.isnan(array[..., 0])
-
-    # for xi, yi in np.argwhere(nans):
-    #     array[xi, yi, :] =
-
-    inds = nd.distance_transform_edt(
-        nans, return_distances=False, return_indices=True)
-
     for i, level in enumerate(np.rollaxis(array, 2)):
+        nans = np.isnan(array[..., i])
+        inds = nd.distance_transform_edt(
+            nans, return_distances=False, return_indices=True)
+
         array[..., i] = array[..., i][tuple(inds)]
 
-    # Remove introduced dimension if necessary
-    if new_dim_added:
-        array = array.squeeze()
+    # Ensure returned array in same form as input
+    array = array.squeeze() if new_dim_added else array
+    array = array.T if inverted_dimensions else array
 
-    if inverted_dimensions:
-        return array.T
-    else:
-        return array
+    return array
 
 
 def xc_to_xg(xc):
@@ -387,9 +378,9 @@ if __name__ == '__main__':
     out = interpolate_output_to_new_grid(run_dir, 100, gout)
 
     fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
-    cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(U, 0), cmap='jet')
+    cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(T, 0), cmap='jet')
     axs[1].pcolormesh(gout.xf, gout.zf,
-                      ma.masked_invalid(out['U'].squeeze()), cmap='jet')
+                      ma.masked_invalid(out['T'].squeeze()), cmap='jet')
     # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
     # axs[1].pcolormesh(gout.xf, gout.zf,
     #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
