@@ -341,10 +341,12 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
         # Grid associated with added border
         pts_in = (zp2, yp2, xp2) if threeD else (yp2, xp2)
 
-        # Linear interpolator
+        # Overall interpolation will be combo of linear and nearest neighbour
+        # to get the best of both
         interp_input = dict(points=pts_in, values=quantity,
                             bounds_error=False, fill_value=None)
         f_lin = rgi(method='linear', **interp_input)
+        f_near = rgi(method='nearest', **interp_input)
 
         # Output grids
         xo, yo, zo = [get_coord(g_out, q) for q in (x, y, z)]
@@ -355,10 +357,22 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
 
         pts_out = (Zo, Yo, Xo) if threeD else (Yo, Xo)
 
+        # Linear interpolate to start with, then fill in bits near boundaries
+        # with nearest neighbour interpolation, then fill everything else
         lin_out = f_lin(pts_out)
+        near_out = f_near(pts_out)
+
+        lin_out_is_nan = np.isnan(lin_out)
+        lin_out[lin_out_is_nan] = near_out[lin_out_is_nan]
 
         # Fill any remaining gaps
         lin_out = remove_nans_laterally(lin_out, inverted_dimensions=True)
+
+        # For completely empty levels, copy the level above
+        if threeD:
+            levels_to_copy = np.where(np.all(np.isnan(lin_out), axis=(1, 2)))[0]
+        for level in levels_to_copy:
+            lin_out[level, ...] = lin_out[level - 1, ...]
 
         all_outputs[k] = lin_out
 
@@ -379,8 +393,10 @@ if __name__ == '__main__':
 
     fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
     cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(T, 0), cmap='jet')
+    clim = cax.get_clim()
     axs[1].pcolormesh(gout.xf, gout.zf,
-                      ma.masked_invalid(out['T'].squeeze()), cmap='jet')
+                      ma.masked_invalid(out['T'].squeeze()), cmap='jet',
+                      vmin=clim[0], vmax=clim[1])
     # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
     # axs[1].pcolormesh(gout.xf, gout.zf,
     #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
