@@ -94,3 +94,13 @@ def emphasise():
            print 'This one is not...'
            print '...but this one is.'
     """
+
+
+def alternative_parameter_method(one, two):
+    """
+    Inputs
+    ------
+
+    :param one: describe one
+    :param two: describe two
+    """
