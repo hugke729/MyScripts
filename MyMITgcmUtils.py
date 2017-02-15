@@ -259,7 +259,8 @@ def add_border_values(X):
     return tmp_X
 
 
-def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
+def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
+                                   get_grid_args=dict()):
     """
     Takes outputs U, V, T, S, Eta and interpolates them onto new grid
 
@@ -270,13 +271,16 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
 
     Inputs
     ------
-    run_dir : str
+    run_dir: str
         Directory containing output
-    last_iter : int
+    last_iter: int
         The number in the output filenames that are to be interpolated
         For example, for T.00000360000.data, last_iter is 36000
-    new_grid : Grid instance
+    new_grid: Grid instance
         Grid from MyGrids.Grid
+    get_grid_args: dict
+        Arguments to pass to get_grid
+        `g_in = get_grid(run_dir, squeeze_hfacs=False, **get_grid_args)`
 
     Notes
     -----
@@ -300,7 +304,7 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid):
 
     # Input and output grids
     run_dir = os.path.normpath(run_dir) + os.sep
-    g_in = get_grid(run_dir, squeeze_hfacs=False)
+    g_in = get_grid(run_dir, squeeze_hfacs=False, **get_grid_args)
     g_out = new_grid
 
     coord_sys = dict(
