@@ -219,8 +219,19 @@ def downsample(x, nx_avg, invalid_to_zero=False):
     return x_out
 
 
-def smooth1d_with_holes(velocity, n):
+def smooth1d_with_holes(y, n, n_near_boundaries=False):
     """Making my own smoothing routine to deal with holes
+
+    Inputs
+    ------
+    y: 1D array
+        Signal to smooth
+    n: int
+        Length of smoothing window
+    n_near_boundaries: bool or int
+        If True, 1st, 2nd, ..., nth values are all mean(y[:n]). And same for
+        other end
+        If int, then 1st, 2nd, ..., int are all mean(y[:int])
 
     Overall, it's a simple n-step moving average, but one that deals with edges
     by doing the following (using n = 5 as example):
@@ -236,10 +247,10 @@ def smooth1d_with_holes(velocity, n):
     # Create a matrix of values that incrementally shift to the right by one
     # index per row
     # For most rows, this means ith column will contain i-n//2 to i+n//2 values
-    vel_matrix = ma.outer(np.ones(n), velocity)
-    vel_matrix.unshare_mask()
-    for i, row in enumerate(vel_matrix):
-        vel_matrix[i, :] = np.roll(row, i - half_n_floor)
+    y_matrix = ma.outer(np.ones(n), y)
+    y_matrix.unshare_mask()
+    for i, row in enumerate(y_matrix):
+        y_matrix[i, :] = np.roll(row, i - half_n_floor)
 
     # For earlier and later columns, we need to remove some of the values that
     # are shifted from the other end. Do this by concatenating triangular blocks
@@ -255,16 +266,24 @@ def smooth1d_with_holes(velocity, n):
 
     # Change unwanted values to NaN
     filterwarnings('ignore', '.*setting an item on a masked array*.')
-    vel_matrix[:, :half_n_ceil][left] = np.nan
-    vel_matrix[:, -half_n_ceil:][right] = np.nan
+    y_matrix[:, :half_n_ceil][left] = np.nan
+    y_matrix[:, -half_n_ceil:][right] = np.nan
 
-    vel_matrix = ma.masked_invalid(vel_matrix)
+    y_matrix = ma.masked_invalid(y_matrix)
 
     # Take mean to give smoothed result
-    smoothed = np.nanmean(vel_matrix, axis=0)
+    smoothed = np.nanmean(y_matrix, axis=0)
 
     # Any values that were masked or nan to start with are converted to nan
-    smoothed[nan_or_masked(velocity)] = np.nan
+    smoothed[nan_or_masked(y)] = np.nan
+
+    # Constant value near boundaries
+    n_bound = n if type(n_near_boundaries) is bool else n_near_boundaries
+    if n_near_boundaries:
+        assert np.isfinite(smoothed[n_bound]), 'n_near_boundaries is not finite'
+        assert np.isfinite(smoothed[-n_bound]), 'n_near_boundaries is not finite'
+        smoothed[:n_bound] = smoothed[n_bound]
+        smoothed[-n_bound:] = smoothed[-n_bound]
 
     return smoothed
 
