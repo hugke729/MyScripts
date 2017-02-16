@@ -494,7 +494,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     prho[0] = prho.min() - 0.02
 
     # Smooth prho
-    prho = smooth(prho-1000, n_smooth_rho)
+    prho = smooth(prho, n_smooth_rho)
 
     # Be extra cautious and calculate intermediate profile following
     # Gargett and Garner (2008)
@@ -544,7 +544,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         Ro = min([(tdi < 0).sum(), (tdi > 0).sum()])/tdi.size
 
         if plot_overturns:
-            line, = ax[0].plot(prho[inds_i], z[inds_i], 'r')
+            line, = ax[0].plot(prho[inds_i], z[inds_i], 'r', zorder=5)
             col = 'r' if density_range < min_dens_range else 'k'
             ax[1].plot(2*(density_range*1E3, ), minmax(z[inds_i]), color=col)
 
@@ -574,7 +574,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
 
     if plot_overturns:
-        ax[0].plot(np.sort(prho), z, 'r')
+        ax[0].plot(np.sort(prho), z, 'g')
         ax[0].plot(prho, z, 'k')
         ax[0].plot(prho[overturn_starts], z[overturn_starts], 'r_')
         ax[0].plot(prho[overturn_ends], z[overturn_ends], 'b_')
@@ -585,7 +585,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
         prho_range = np.ptp(prho[start:end])  # Range over overturn
 
-        zrms = np.std(thorpe_disp[start:end])
+        zrms = np.sqrt(np.sum((thorpe_disp[start:end])**2)/(end-start))
         thorpe_scales[start:end] = zrms
         dprho_dz = prho_range/np.ptp(z[start:end])
         N2_in_overturn = 9.81/np.mean(prho[start:end])*dprho_dz
@@ -594,11 +594,12 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         if plot_overturns:
             log_eps = np.log10(zrms**2*N2_in_overturn**(3/2))
             ax[3].plot(np.ones_like(z[start:end])*log_eps, z[start:end], 'k')
+            ax[4].plot(thorpe_scales[start:end], z[start:end], 'k')
 
     return thorpe_scales, N2
 
 
-def calc_eps(p, prho, z):
+def calc_eps(p, prho, z, plot_overturns=False):
     """Calculate dissipation using Thorpe scale"""
 
     down_inds = select_downcast(p, for_overturn_calcs=True)
@@ -610,7 +611,8 @@ def calc_eps(p, prho, z):
     N2 = np.full_like(prho, np.nan)
 
     # Calc L_T and derive dissipation from parameterisation
-    L_T[inds], N2[inds] = calc_Lt(prho[inds], z[inds], plot_overturns=False)
+    L_T[inds], N2[inds] = calc_Lt(
+        prho[inds], z[inds], plot_overturns=plot_overturns)
     eps = L_T**2*N2**(3/2)
 
     return eps, L_T
@@ -960,17 +962,15 @@ def combine_MVP_ADCP(transect_name):
 
 
 if __name__ == '__main__':
-    # for i in np.r_[371-57]:
-    # for i in np.r_[107, 109:120:3]:
-    # for i in np.r_[180]:
-    for i in np.r_[400]:
-        try:
-            xyt, data, binned = loadMVP_m1(i, z_bins=np.arange(0, 250.1, 1))
-        except IndexError:
-            pass
-        try:
-            print((data['eps'] > 0).sum(), end=' ')
-            print(np.log10(data['eps_z_integral']), end='  ')
-            print(np.log10(np.nanmean(binned['eps'])))
-        except RuntimeWarning:
-            print('0  0')
+    D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
+    plt.plot(D['cast'], D['eps_zavg'])
+
+    i = 230
+    _, data = loadMVP_m1(i, bin_data=False)
+
+    eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
+    # fig, ax = plt.subplots(ncols=2, sharey=True)
+    # ax[0].plot(data['prho
+    # ax[1].plot(ma.log10(D['eps'][i, :]), D['z_c'], 'o')
+    # flipy(ax[0])
+
