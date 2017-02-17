@@ -219,7 +219,7 @@ def downsample(x, nx_avg, invalid_to_zero=False):
     return x_out
 
 
-def smooth1d_with_holes(y, n, n_near_boundaries=False):
+def smooth1d_with_holes(y, n, n_near_boundaries=False, gaussian=True):
     """Making my own smoothing routine to deal with holes
 
     Inputs
@@ -229,9 +229,12 @@ def smooth1d_with_holes(y, n, n_near_boundaries=False):
     n: int
         Length of smoothing window
     n_near_boundaries: bool or int
-        If True, 1st, 2nd, ..., nth values are all mean(y[:n]). And same for
+        If True, 1st, 2nd, ..., n/2-th values are all mean(y[:n]). And same for
         other end
         If int, then 1st, 2nd, ..., int are all mean(y[:int])
+    gaussian: bool
+        If True, use gaussian weigthing function, not tophat
+
 
     Overall, it's a simple n-step moving average, but one that deals with edges
     by doing the following (using n = 5 as example):
@@ -271,8 +274,15 @@ def smooth1d_with_holes(y, n, n_near_boundaries=False):
 
     y_matrix = ma.masked_invalid(y_matrix)
 
-    # Take mean to give smoothed result
-    smoothed = np.nanmean(y_matrix, axis=0)
+    if gaussian:
+        gaussian_kernel = np.exp(-np.linspace(-1.5, 1.5, n)**2)
+        gaussian_kernel = gaussian_kernel[:, np.newaxis]*np.ones_like(y_matrix)
+        gaussian_kernel = ma.masked_where(y_matrix.mask, gaussian_kernel)
+        smoothed = np.sum(
+            y_matrix*gaussian_kernel, axis=0)/np.sum(gaussian_kernel, axis=0)
+    else:
+        # Take mean to give smoothed result
+        smoothed = np.nanmean(y_matrix, axis=0)
 
     # Any values that were masked or nan to start with are converted to nan
     smoothed[nan_or_masked(y)] = np.nan
@@ -280,10 +290,11 @@ def smooth1d_with_holes(y, n, n_near_boundaries=False):
     # Constant value near boundaries
     n_bound = n if type(n_near_boundaries) is bool else n_near_boundaries
     if n_near_boundaries:
-        assert np.isfinite(smoothed[n_bound]), 'n_near_boundaries is not finite'
-        assert np.isfinite(smoothed[-n_bound]), 'n_near_boundaries is not finite'
-        smoothed[:n_bound] = smoothed[n_bound]
-        smoothed[-n_bound:] = smoothed[-n_bound]
+        assert_msg = 'n_near_boundaries is not finite'
+        assert np.isfinite(smoothed[n_bound//2]), assert_msg
+        assert np.isfinite(smoothed[-n_bound//2]), assert_msg
+        smoothed[:n_bound//2] = smoothed[n_bound//2]
+        smoothed[-n_bound//2:] = smoothed[-n_bound//2]
 
     return smoothed
 
