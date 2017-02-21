@@ -8,6 +8,7 @@ from scipy.sparse.linalg import lsqr
 from scipy.sparse import lil_matrix
 from mpl_toolkits.mplot3d import axes3d
 from MyGrids import telescope_centre_n
+from scipy.ndimage import gaussian_filter
 
 
 def interp_weights(xyz, uvw, preflattened=False):
@@ -217,6 +218,33 @@ def downsample(x, nx_avg, invalid_to_zero=False):
         x_out = ma.masked_where(weight_total == 0, x_out)
 
     return x_out
+
+
+def nan_gaussian_filter(X, sigma, keep_nans=False, gf_kwargs=dict()):
+    """Equivalent to scipy.ndimage.gaussian_filter, but allows NaNs
+
+    For inputs see original function
+
+    if keep_nans is True, then output has NaNs everywhere input had nans
+
+    http://stackoverflow.com/questions/18697532/
+    gaussian-filtering-a-image-with-nan-in-python"""
+    nanX = np.isnan(X)
+
+    X1 = X.copy()
+    X1[nanX] = 0
+    X1_filtered = gaussian_filter(X1, sigma, **gf_kwargs)
+
+    X2 = np.ones_like(X)
+    X2[nanX] = 0
+    X2_filtered = gaussian_filter(X2, sigma, **gf_kwargs)
+
+    out = X1_filtered/X2_filtered
+
+    if keep_nans:
+        out[nanX] = np.nan
+
+    return out
 
 
 def smooth1d_with_holes(y, n, n_near_boundaries=False, gaussian=True):
