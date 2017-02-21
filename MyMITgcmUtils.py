@@ -385,8 +385,8 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
         # For completely empty levels, copy the level above
         if threeD:
             levels_to_copy = np.where(np.all(np.isnan(lin_out), axis=(1, 2)))[0]
-        for level in levels_to_copy:
-            lin_out[level, ...] = lin_out[level - 1, ...]
+            for level in levels_to_copy:
+                lin_out[level, ...] = lin_out[level - 1, ...]
 
         all_outputs[k] = lin_out
 
