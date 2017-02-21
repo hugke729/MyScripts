@@ -251,11 +251,25 @@ def concatenate_binned_arrays(
     grid_all['z_c'] = (z_bins[1:] + z_bins[:-1])/2
     grid_all['z_f2d'] = np.outer(np.ones(dist_np1.size), z_bins)
 
-    # Analyse flow in two layers
+    # Analyse flow in two layers. Do separately for each part of sill,
+    # which I call sill_1 and sill_2 funnily enough
+    # Keep all results in a dict within the overall dict
     if flatten_transect:
-        gprime, interface_depth = two_layer_treatment(grid_all)
-        grid_all['gprime'] = gprime
-        grid_all['interface_depth'] = interface_depth
+        sill_names = 'sill_1', 'sill_2'
+        x_sills_both = (48, 58), (75, 90)
+        x_ranges_both = (0, 75), (70, 200)
+        for sill_name, x_sills, x_ranges in zip(
+                sill_names, x_sills_both, x_ranges_both):
+
+            rho_interface, gprime, z_interface = two_layer_treatment(
+                grid_all, x_sills, x_ranges)
+
+            grid_all[sill_name] = dict()
+            grid_all[sill_name]['x_sills'] = x_sills
+            grid_all[sill_name]['x_ranges'] = x_ranges
+            grid_all[sill_name]['gprime'] = gprime
+            grid_all[sill_name]['rho_interface'] = rho_interface
+            grid_all[sill_name]['interface_depth'] = z_interface
 
     return grid_all
 
@@ -595,6 +609,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
             log_eps = np.log10(zrms**2*N2_in_overturn**(3/2))
             ax[3].plot(np.ones_like(z[start:end])*log_eps, z[start:end], 'k')
             ax[4].plot(thorpe_scales[start:end], z[start:end], 'k')
+            ax[4].plot(np.zeros(end-start), z[start:end], 'k--')
 
     return thorpe_scales, N2
 
@@ -783,8 +798,21 @@ def flatten_to_line(lons, lats):
     return total_dist
 
 
-def two_layer_treatment(mvp_dict):
+def two_layer_treatment(mvp_dict, x_sills, x_ranges):
     """Estimate g-prime and interface depth
+
+    Inputs
+    ------
+    mvp_dict: dict
+        Used throughout this file
+    x_sills: 2-tuple of floats
+        x position of the start and end of the sill in kilometres
+    x_ranges: 2-tuple of floats
+        x position of location where output is applicable
+
+    For my transect:
+        first sill: x_sills = (48, 58), x_ranges = (0, 80)
+        second sill: x_sills = (75, 90), x_ranges = (65, 200)
 
     Returns
     -------
@@ -797,11 +825,10 @@ def two_layer_treatment(mvp_dict):
     # Simplify names of commonly used variables
     prho = mvp_dict['prho'].copy()
     z_c = mvp_dict['z_c'].copy()
+    x = mvp_dict['dist_flat']
 
-    # Sill inds are where depth is in shallowest 10% of all depths in transect
-    # Somewhat ad hoc, but I'm sure it will work all right
     bottom = np.array(mvp_dict['bottom'])
-    sill_inds = np.where(bottom < np.percentile(bottom, 10))[0]
+    sill_inds = np.where(np.logical_and(x > x_sills[0], x < x_sills[1]))[0]
 
     # Find interface of mode-1 wave for each profile in sill_inds
     rho_interfaces = np.zeros_like(sill_inds, dtype='float')
@@ -811,10 +838,10 @@ def two_layer_treatment(mvp_dict):
         # Find density of zero crossing of horizontal structure
         rho_interfaces[i] = f(0)
 
-    rho_interface = np.mean(rho_interfaces)
+    rho_interface = np.nanmean(rho_interfaces)
 
     # Find depth of rho_interface along transect
-    x_in, y_in, z_in = mvp_dict['dist_flat'], z_c, prho
+    x_in, y_in, z_in = x, z_c, prho
     interface_depth = get_contour(x_in, y_in, z_in, rho_interface)
 
     # Preallocate results to keep
@@ -841,7 +868,12 @@ def two_layer_treatment(mvp_dict):
 
         gprime[i] = 9.81*(bot_rho_avg - top_rho_avg)/bot_rho_avg
 
-    return gprime, interface_depth
+    # Remove output where inappropriate
+    inappropriate_inds = np.logical_or(x < x_ranges[0], x > x_ranges[1])
+    gprime[inappropriate_inds] = np.nan
+    interface_depth[inappropriate_inds] = np.nan
+
+    return rho_interface, gprime, interface_depth
 
 
 def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
@@ -950,9 +982,11 @@ def combine_MVP_ADCP(transect_name):
     filterwarnings('ignore', 'invalid value*.')
     filterwarnings('ignore', '.*converting a masked element*.')
 
-    G = calc_froude_number(
-        u_along, mvp_dict['gprime'], mvp_dict['interface_depth'], z,
-        mvp_dict['bottom'])
+    G = dict()
+    for sill_name in ['sill_1', 'sill_2']:
+        G[sill_name] = calc_froude_number(
+            u_along, mvp_dict[sill_name]['gprime'],
+            mvp_dict[sill_name]['interface_depth'], z, mvp_dict['bottom'])
 
     out_dict = dict(X=X, x=X[0, :], z=Z[:, 0], Z=Z, G=G)
     out_dir = '/home/hugke729/PhD/Data/Shipboard/combined_mvp_adcp/'
@@ -963,12 +997,15 @@ def combine_MVP_ADCP(transect_name):
 
 if __name__ == '__main__':
     D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
-    plt.plot(D['cast'], D['eps_zavg'])
+    # rho_interface, gprime, z_interface = two_layer_treatment(D, (48, 58), (0, 80))
+    # second sill: x_sills = (75, 90), x_ranges = (65, 200)
+    # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
+    # plt.plot(D['cast'], D['eps_zavg'])
 
-    i = 230
-    _, data = loadMVP_m1(i, bin_data=False)
+    # i = 536
+    # _, data = loadMVP_m1(i, bin_data=False)
 
-    eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
+    # eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
     # fig, ax = plt.subplots(ncols=2, sharey=True)
     # ax[0].plot(data['prho
     # ax[1].plot(ma.log10(D['eps'][i, :]), D['z_c'], 'o')
