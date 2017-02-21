@@ -7,6 +7,7 @@ from scipy import ndimage as nd
 from scipy.interpolate import RegularGridInterpolator as rgi
 from MITgcmutils import rdmds
 from MyGrids import Grid
+from MyInterp import nan_gaussian_filter
 
 
 def write_for_mitgcm(filename_in, array_in, prec=64):
@@ -331,6 +332,15 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
         # and 0 is unphysical. For U and V, it's not as important but still
         # worthwhile
         quantity[hi == 0] = np.nan
+
+        # Smooth at each depth level before interpolation. Helps reduce large
+        # divergences
+        gf_opts = dict(sigma=1, keep_nans=False, gf_kwargs=dict(truncate=8))
+        if threeD:
+            for i, level in enumerate(quantity):
+                quantity[i, ...] = nan_gaussian_filter(level, **gf_opts)
+        else:
+            quantity = nan_gaussian_filter(quantity, **gf_opts)
 
         # Add a border around output to avoid problems with regions between
         # the centre of the first and last cells in a given dimension and the
