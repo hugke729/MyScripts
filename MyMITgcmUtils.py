@@ -2,6 +2,7 @@ from warnings import filterwarnings
 import numpy as np
 import numpy.ma as ma
 import os
+import sys
 from subprocess import check_output
 from scipy import ndimage as nd
 from scipy.interpolate import RegularGridInterpolator as rgi
@@ -11,10 +12,23 @@ from MyInterp import nan_gaussian_filter
 
 
 def write_for_mitgcm(filename_in, array_in, prec=64):
-    import sys
-    # Converts array_in to column major (aka fortran) ordering and
-    # big endian format.
-    # Result is written on file_in
+    """Write binary file to use as input for MITgcm
+
+    Inputs
+    ------
+    filename_in: str
+        Name of binary file
+    array_in: numpy array
+        Array to write to binary file with shape (Nx, Ny, Nz) or subset. This
+        is opposite order to output of rdmds.
+    prec: int
+        Only options are 32 or 64
+
+    Notes
+    -----
+    * Need to confirm whether time is before x or after z
+    * Output is big endian
+    """
 
     if prec == 32:
         array_in = array_in.astype('float32')
@@ -282,6 +296,12 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
     get_grid_args: dict
         Arguments to pass to get_grid
         `g_in = get_grid(run_dir, squeeze_hfacs=False, **get_grid_args)`
+
+    Returns
+    -------
+    all_outputs: dict
+        Contains U, V, T, S, and Eta on new grid. Shape of these arrays
+        are (Nz × Ny × Nx) or (Ny × Nx) for Eta
 
     Notes
     -----
