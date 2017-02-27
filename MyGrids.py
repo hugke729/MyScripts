@@ -161,17 +161,17 @@ def telescope_centre_n(dist, dx_min, x_centre, dx_const, n, init_r=None,
 
     Inputs
     ------
-    dist : float
+    dist: float
         total distance
-    dx_min : float
+    dx_min: float
         smallest value of dx, and value of dx inside dx_const radius
-    x_centre : float
+    x_centre: float
         location about which dx is symmetrical
-    dx_const : float
+    dx_const: float
         distance either side of x_centre to keep dx constant
-    n : int
+    n: int
         size of output dx vector
-    init_r : float
+    init_r: float
         initial guess for the value by which to telescope (e.g., for 10%
         increase, init_r would be 1.1)
         Specify a reasonable overestimate if solver does not converge
