@@ -703,20 +703,23 @@ def froude_plots():
             continue
         data_dir = '/home/hugke729/PhD/Data/Shipboard/'
         mvp_fname = data_dir + 'MVP/transects/' + k + '.p'
-        adcp_fname = data_dir + 'ADCP/processed/' + k + '.p'
         mvp_dict = pickle.load(open(mvp_fname, 'rb'))
-        adcp_dict = pickle.load(open(adcp_fname, 'rb'))
-        G = combine_MVP_ADCP(mvp_dict, adcp_dict)
+        # Fix needed: Account for converting G from numpy array to dict with
+        # keys sill_1 and sill_2 (20 Feb 2017)
+        G_dict = combine_MVP_ADCP(k)
         ax_rho[i].plot(dist, depth, 'k')
-        ax_rho[i].plot(mvp_dict['dist_flat'], mvp_dict['interface_depth'], 'k')
+        for sill_name in ['sill_1', 'sill_2']:
+            ax_rho[i].plot(mvp_dict['dist_flat'],
+                           mvp_dict[sill_name]['interface_depth'], 'k')
         cax = ax_rho[i].contourf(
             mvp_dict['dist_flat'], mvp_dict['z_c'], mvp_dict['prho'].T - 1000,
             cmap='afmhot_r', levels=np.r_[25.2:27:0.2])
 
         ax_rho[i].set_ylabel(k)
         flipy(ax_rho[i])
-        ax_G[i].plot(mvp_dict['dist_flat'], G, 'k')
-        ax_G[i].plot(mvp_dict['dist_flat'], np.ones_like(G), 'r')
+        for k, v in G_dict.items():
+            ax_G[i].plot(mvp_dict['dist_flat'], v, 'k')
+            ax_G[i].plot(mvp_dict['dist_flat'], np.ones_like(v), 'r')
         i += 1
 
     cbar = fig_rho.colorbar(cax, ax=list(ax_rho))
@@ -790,3 +793,7 @@ def calc_vol_flux(name):
 
     area_percent = 100*area/actual_area[name]
     print('    Percent area covered by ADCP: {0:2.0f}\n\n'.format(area_percent))
+
+
+if __name__ == '__main__':
+    froude_plots()
