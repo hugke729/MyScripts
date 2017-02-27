@@ -1,6 +1,7 @@
 from seawater.eos80 import dens0
 import numpy as np
 import matplotlib.pyplot as plt
+from pandas import read_csv
 
 
 def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
@@ -52,3 +53,31 @@ def intermediate_density_profile(rho, min_drho=1E-3, return_up_down=False):
         return rho_intermediate, rho_up.copy(), rho_down.copy()
     else:
         return rho_intermediate
+
+
+def read_tide_csv(tide_file):
+    """Read tide height csv file output from tbone.biol.sc.edu/tide
+
+    See examples in /home/hugke729/PhD/Data/Shipboard/doc/
+
+    Input
+    -----
+    tide_file: str
+        Name of csv file
+
+    Returns
+    -------
+    dates: list
+        List of datetime.datetime objects
+    table: pandas Dataframe
+        Composed of date and tidal height
+    """
+    table = read_csv(
+        tide_file, sep=',', skiprows=5, nrows=630,
+        engine='python', infer_datetime_format=True,
+        header=None, names=('Date', 'Height'), parse_dates=['Date'])
+
+    # Unable to figure out how to do this correctly
+    dates = [d.to_pydatetime() for d in table.Date]
+
+    return dates, table
