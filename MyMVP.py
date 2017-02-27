@@ -18,6 +18,7 @@ from warnings import filterwarnings
 from MyMapFunctions import haversines
 from MyFunctions import (scalar_projection, angle, central_diff_gradient,
                          get_contour)
+from MySysUtils import preall
 from MyInterp import smooth1d_with_holes as smooth
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
@@ -878,9 +879,8 @@ def two_layer_treatment(mvp_dict, x_sills, x_ranges):
 
 def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
     """Calculate composite Froude number G"""
-    G = np.full_like(gprime, np.nan)
-    top_u = np.full_like(gprime, np.nan)
-    bot_u = np.full_like(gprime, np.nan)
+    G, top_u, bot_u, Fr_top_sq, Fr_bot_sq = prell(
+        gprime.shape, copies=5, initial_value=np.nan)
 
     for i, u_i in enumerate(along_u.T):
         top_layer_inds = adcp_z <= interface_depth[i]
@@ -893,8 +893,10 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
         top_u[i] = ma.mean(u_i[top_layer_inds])
         bot_u[i] = ma.mean(u_i[bot_layer_inds])
 
-        G_squared = (top_u[i]**2/(gprime[i]*interface_depth[i]) +
-                     bot_u[i]**2/(gprime[i]*(seafloor[i] - interface_depth[i])))
+        Fr_top_sq = top_u[i]**2/(gprime[i]*interface_depth[i])
+        Fr_bot_sq = bot_u[i]**2/(gprime[i]*(seafloor[i] - interface_depth[i]))
+
+        G_squared = (Fr_top_sq + Fr_bot_sq)
 
         G[i] = np.sqrt(G_squared)
 
@@ -902,7 +904,7 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
     ax[0].plot(top_u, 'b')
     ax[0].plot(bot_u, 'r')
     ax[1].plot(seafloor)
-    return G
+    return G, Fr_top_sq, Fr_bot_sq
 
 
 def combine_MVP_ADCP(transect_name):
@@ -996,17 +998,17 @@ def combine_MVP_ADCP(transect_name):
 
 
 if __name__ == '__main__':
-    D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
+    # D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (48, 58), (0, 80))
     # second sill: x_sills = (75, 90), x_ranges = (65, 200)
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
     # plt.plot(D['cast'], D['eps_zavg'])
 
-    # i = 536
-    # _, data = loadMVP_m1(i, bin_data=False)
+    i = 382
+    _, data = loadMVP_m1(i, bin_data=False)
 
-    # eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
-    # fig, ax = plt.subplots(ncols=2, sharey=True)
+    eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
+    fig, ax = plt.subplots(ncols=2, sharey=True)
     # ax[0].plot(data['prho
     # ax[1].plot(ma.log10(D['eps'][i, :]), D['z_c'], 'o')
     # flipy(ax[0])
