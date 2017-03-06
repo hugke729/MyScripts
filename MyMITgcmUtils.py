@@ -355,7 +355,8 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
 
         # Smooth at each depth level before interpolation. Helps reduce large
         # divergences
-        gf_opts = dict(sigma=1, keep_nans=False, gf_kwargs=dict(truncate=8))
+        # Update: 6/3/17. Try without smoothing
+        gf_opts = dict(sigma=0, keep_nans=False, gf_kwargs=dict(truncate=8))
         if threeD:
             for i, level in enumerate(quantity):
                 quantity[i, ...] = nan_gaussian_filter(level, **gf_opts)
