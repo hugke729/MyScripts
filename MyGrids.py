@@ -385,7 +385,7 @@ class Grid:
         Left end of grid relative to m.xmin
     y0: float
         Bottom of grid relative to m.ymin
-    extra_attrs: dict
+    added_attrs: dict
         Extra attributes to pass to grid (e.g., hFacs or depth)
     """
 
