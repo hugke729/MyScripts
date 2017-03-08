@@ -246,3 +246,7 @@ def next_pow_2(x):
 
 def prev_pow_2(x):
     return (2**np.floor(np.log2(x))).astype(int)
+
+
+def midpoint(x, axis=0):
+    return x[:-1] + np.diff(x, axis=axis)/2
