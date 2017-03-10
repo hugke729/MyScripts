@@ -237,6 +237,14 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True):
     return g
 
 
+def mask_mitgcm_output(output):
+    """Return a masked array copy of output with only values in water
+
+    Not 100% gauranteed to work perfectly, but should work most of the time"""
+    output = ma.masked_where(output == np.roll(output, -1, axis=0), output)
+    return output
+
+
 def add_border_values(X):
     """Add a border of values by copying the first and last lines in the
     array in each dimension and prepending/appending
