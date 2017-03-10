@@ -1,3 +1,4 @@
+import warnings
 from matplotlib import pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import numpy as np
@@ -206,6 +207,17 @@ def decdeg2degdm(dd):
     return (degrees, dm)
 
 
+def disp_km(ax):
+    """Displays curson position in kilometres"""
+
+    def format_coord(x, y):
+        xy_str = 'x(km) = {0:6.1f}    y(km) = {1:6.1f}'
+        return xy_str.format(x/1e3, y/1e3)
+
+    ax.format_coord = format_coord
+    return ax
+
+
 def disp_latlon(ax, m, form='dd', xyz=None):
     """Displays lat and lon for the cursor position
 
@@ -226,7 +238,7 @@ def disp_latlon(ax, m, form='dd', xyz=None):
         """Create string showing lat/lon and x/y in km"""
         lon, lat = m(x, y, inverse=True)
         xy_str = 'x(km) = {4:6.1f}    y(km) = {5:6.1f}'
-#
+
         if form == 'dm':
             latd, latm = decdeg2degdm(lat)
             lond, lonm = decdeg2degdm(lon)
@@ -235,12 +247,12 @@ def disp_latlon(ax, m, form='dd', xyz=None):
             lat_lon_str = lat_str + lon_str
             fmt_str = lat_lon_str + xy_str
             output = (fmt_str).format(latd, latm, lond, lonm, x/1e3, y/1e3)
-#
+
         elif form == 'dd':
             lat_lon_str = 'Lat = {0:.5f}   Lon = {1:.5f}   |   '
             fmt_str = lat_lon_str + xy_str
             output = (fmt_str).format(lat, lon, 0, 0, x/1e3, y/1e3)
-#
+
         # if X, Y, Z are specified, then look up closest Z value to current
         # (x, y) mouse coordinate
         if xyz is not None:
@@ -250,8 +262,20 @@ def disp_latlon(ax, m, form='dd', xyz=None):
             y_bounds = (Y - np.gradient(Y)[0])[:, 0]
             z = Z[np.argmax(y < y_bounds) - 1, np.argmax(x < x_bounds) - 1]
             output += z_str.format(z)
-#
+
         return output
 
     ax.format_coord = format_coord
     return ax
+
+
+def click_km():
+    warnings.filterwarnings('ignore', 'Using default event loop*.')
+    pts = plt.ginput(2)
+    x0, y0 = pts[0]
+    x1, y1 = pts[1]
+    dist_km = np.hypot(x1-x0, y1-y0)/1e3
+
+    print('{0:6.1f} km'.format(dist_km))
+
+    return dist_km
