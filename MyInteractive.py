@@ -269,13 +269,21 @@ def disp_latlon(ax, m, form='dd', xyz=None):
     return ax
 
 
-def click_km():
+def click_dist(print=True):
     warnings.filterwarnings('ignore', 'Using default event loop*.')
     pts = plt.ginput(2)
     x0, y0 = pts[0]
     x1, y1 = pts[1]
-    dist_km = np.hypot(x1-x0, y1-y0)/1e3
+    dist = np.hypot(x1-x0, y1-y0)
 
+    if print:
+        print('{0:6.1f}'.format(dist))
+
+    return dist
+
+
+def click_km():
+    dist_km = click_dist(print=False)/1e3
     print('{0:6.1f} km'.format(dist_km))
 
     return dist_km
