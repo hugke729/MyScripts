@@ -653,3 +653,42 @@ def fill_gaps_in_2d_transect(Z, n=1):
 
 def bin_1d_transect(x, z, x_out):
     return bin_2d_transect(x, np.r_[0.5], z, x_out, np.r_[:2])
+
+
+def interp3d_array_on_fly(Q, i_out):
+    """Interpolate 3d array in first axis using quadratic fit on the fly
+
+    Inputs
+    ------
+    Q: 3D array to interpolate
+        Must be evenly spaced in first axis
+    i_out: float
+        "Index" to interpolate onto
+
+    Notes
+    -----
+    Uses Lagrange interpolation formula, simplified for even spacing
+    """
+    N = Q.shape[0]
+
+    if i_out < 1.5:
+        i_in = 1
+        i_slice = np.s_[0:3, ...]
+    elif i_out > N - 2.5:
+        i_in = N - 2
+        i_slice = np.s_[-3:, ...]
+    else:
+        i_in = np.round(i_out).astype(int)
+        i_slice = np.s_[i_in-1:i_in+2]
+
+    Qi = Q[i_slice]
+
+    i_out -= i_in
+
+    x1, x2, x3 = -1, 0, 1
+
+    Q_out = (+ Qi[0]*(i_out - x2)*(i_out - x3)/2 +
+             - Qi[1]*(i_out - x1)*(i_out - x3) +
+             + Qi[2]*(i_out - x1)*(i_out - x2)/2)
+
+    return Q_out
