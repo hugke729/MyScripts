@@ -42,8 +42,12 @@ def get_xyt(cast_numbers):
     all the data in"""
 
     data_loc = '/home/hugke729/PhD/Data/Shipboard/CTD/processed/'
-    D = pickle.load(open(data_loc + 'xyt_summary.pickle', 'rb'))
+    xyt_file = data_loc + 'xyt_summary.csv'
 
+    casts, lats, lons, utc_time, depths = np.genfromtxt(
+        xyt_file, skip_header=1, unpack=True, delimiter=',')
+    D = {cast: (lat, lon, depth)
+         for cast, lat, lon, depth in zip(casts, lats, lons, depths)}
     # Return tuple or list of types depending on what cast_numbers is
     try:
         return D[cast_numbers]
