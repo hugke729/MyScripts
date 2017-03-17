@@ -644,8 +644,10 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
 
 def plot_ctd_as_section(cast_nos):
     data_dir = '/home/hugke729/PhD/Data/Shipboard/CTD/processed/'
-    xyt_file = data_dir + 'xyt_summary.pickle'
-    xyt = pickle.load(open(xyt_file, 'rb'))
+    xyt_file = data_dir + 'xyt_summary.csv'
+    casts, lats, lons, utc_time = np.genfromtxt(
+        xyt_file, skip_header=1, unpack=True, delimiter=',')
+    xyt = {cast: (lat, lon) for cast, lat, lon in zip(casts, lats, lons)}
 
     # Preallocate
     lat, lon, depth = preall(len(cast_nos), copies=3)
@@ -659,7 +661,7 @@ def plot_ctd_as_section(cast_nos):
     for i, cast in enumerate(cast_nos):
         lat[i] = xyt[cast][0]
         lon[i] = xyt[cast][1]
-        depth[i] = xyt[cast][3]
+        # depth[i] = xyt[cast][3]
         theta_i, S_i, sigma_i, _ = get_theta_S_sigma_z(cast)
         N = len(theta_i)
 
@@ -679,7 +681,7 @@ def plot_ctd_as_section(cast_nos):
     rho_levels = [25, 25.5, 26, 26.25, 26.5]
     co = ax.contour(dist, z, sigma.T, rho_levels, colors='r')
     ax.clabel(co, rho_levels[1:], fmt='%3.2f')
-    ax.plot(dist, depth, 'k')
+    # ax.plot(dist, depth, 'k')
     cbar = fig.colorbar(cax)
     cbar.set_label('Potential temperature (C)')
     ax.set(ylim=(250, 0), ylabel='Depth (m)', xlabel='Distance eastward (km)')
@@ -795,5 +797,5 @@ def calc_vol_flux(name):
     print('    Percent area covered by ADCP: {0:2.0f}\n\n'.format(area_percent))
 
 
-if __name__ == '__main__':
-    froude_plots()
+# if __name__ == '__main__':
+#     froude_plots()
