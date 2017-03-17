@@ -668,6 +668,8 @@ def interp3d_array_on_fly(Q, i_out):
     Notes
     -----
     Uses Lagrange interpolation formula, simplified for even spacing
+
+    This represents a failed attempt to make animated output from MITgcm better
     """
     N = Q.shape[0]
 
@@ -690,5 +692,16 @@ def interp3d_array_on_fly(Q, i_out):
     Q_out = (+ Qi[0]*(i_out - x2)*(i_out - x3)/2 +
              - Qi[1]*(i_out - x1)*(i_out - x3) +
              + Qi[2]*(i_out - x1)*(i_out - x2)/2)
+
+    # Better result comes from adding some linear interpolation to soln
+    try:
+        if i_out < 0:
+            Q_out_lin = -i_out*Q[i_in - 1] + (1 + i_out)*Q[i_in]
+        elif i_out > 0:
+            Q_out_lin = i_out*Q[i_in + 1] + (1 - i_out)*Q[i_in]
+
+        Q_out = (Q_out + Q_out_lin)/2
+    except IndexError:
+        pass
 
     return Q_out
