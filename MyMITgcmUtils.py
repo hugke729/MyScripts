@@ -59,6 +59,14 @@ def remove_nans_laterally(array, inverted_dimensions=False):
     Idea from stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
     """
 
+    if array.ndim == 1:
+        nans = np.isnan(array)
+        inds = nd.distance_transform_edt(
+            nans, return_distances=False, return_indices=True)
+
+        array = array[tuple(inds)]
+        return array
+
     array = array.T if inverted_dimensions else array
 
     if array.ndim == 2:
