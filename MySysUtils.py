@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 import numpy.ma as ma
 from IPython import get_ipython
-mgc = get_ipython().magic
 
 
 def filedrive():
@@ -46,6 +45,7 @@ def rm_var_except(except_list, ns=locals()):
 
     # use Ipython's who_ls to create a list containing only the variables that
     # I actually interact with
+    mgc = get_ipython().magic
     all_vars = mgc(
         'who_ls ndarray list dict int str float bool tuple int32 int64')
 
