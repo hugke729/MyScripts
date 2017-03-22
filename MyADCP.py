@@ -1,18 +1,17 @@
 # Script to process ADCP data
 # For summary of steps, see the function process ADCP data
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import pickle
 import glob
 import numpy as np
 import numpy.ma as ma
 from pycurrents.adcp.rdiraw import Multiread
-from MyPlotFunctions import flipy, fix_colorbar
 from MyInterp import smooth1d_with_holes
 from MyMVP import flatten_to_line
 from MyInteractive import disp_latlon
 from MyMapFunctions import haversines
-from MyNumpyTools import cosd, ma_mad
+from MyNumpyTools import cosd, ma_mad, logical_any
+from MyAmundsenPlots import adcp_pcolor
 
 # Overview of functions
 
@@ -70,25 +69,28 @@ def subtract_vessel_velocity(raw_vel, bt_vel):
     return vel
 
 
-def along_component(vel_array, heading, lat, is_long_section=True):
-    """Convert velocities to along-transect componento
+def along_component(vel_array, lat, lon, m, is_long_section=True):
+    """Convert velocities to along-transect component
+
+    Positive velocities are toward southeast
 
     Currently only computed for long-sound transects
     """
+    x, y = m(lon, lat)
+    # x, y = [gaussian_filter1d(q, 3) for q in (x, y)]
+    lon, lat = [gaussian_filter1d(q, 5) for q in (lon, lat)]
+    _, ship_bearing = haversines(lon, lat)
 
     U, V = vel_array[:, :, :2].T
-    vel_mag = np.hypot(U, V)
+    tmp = 90 - np.rad2deg(np.arctan2(V, U))
+    vel_bearing = (tmp + 360) % 360
 
-    # Heading is like bearing, but with range -180 to 180
-    # Convert velocity direction to this same coordinate system
-    vel_heading = (90 - np.rad2deg(np.arctan2(V, U)))*np.sign(U)
-    cos_theta = cosd(vel_heading - heading)
+    along_vel = np.hypot(U, V)*cosd(vel_bearing - ship_bearing)
+    along_vel = along_vel.T
 
     if np.mean(np.diff(lat)) > 0:
         # Transect is northward
-        cos_theta = -cos_theta
-
-    along_vel = (vel_mag*cos_theta).T
+        along_vel *= -1
 
     if not is_long_section:
         # Along-transect velocity needs work for cross-sections
@@ -211,7 +213,17 @@ def truncate_data(data, start, end, lim_type='cast'):
         start, end = map(ctd_cast_number_to_month_day, [start, end])
 
     # truncate
-    inds = np.where(np.logical_and(monthDays > start, monthDays < end))[0]
+    within_time_frame = np.logical_and(monthDays > start, monthDays < end)
+
+    # Find times when boat was doing part of a loop
+    dday = data.dday
+    part_of_loop = logical_any(
+        np.logical_and(dday > 270.265, dday < 270.272),
+        np.logical_and(dday > 270.760, dday < 270.801),
+        np.logical_and(dday > 268.809, dday < 268.876))
+
+    inds = np.where(np.logical_and(within_time_frame, ~part_of_loop))[0]
+
     for key, value in data.items():
         try:
             data[key] = value[inds, ...]
@@ -313,19 +325,35 @@ def plot_section(data, is_long_section=False):
     disp_latlon(axs[1], m)
     m.scatter(data['lon_s'][0], data['lat_s'][0], 10)
 
+    x, y = m(data.lon_s, data.lat_s)
+    uavg, vavg = ma.mean(data.vel_s[..., :2], axis=1).T
+    m.plot(x, y, 'k')
+    scale = 1e4
+    m.plot((x, x + scale*uavg), (y, y + scale*vavg), 'r')
+
+    for i in np.r_[:200:20]:
+        try:
+            ind = np.where(data.dist_s > i*1e3)[0][0]
+            axs[1].text(x[ind], y[ind], str(i))
+            axs[1].plot(x[ind], y[ind],
+                        marker='o', color='b', markersize=4, ls='none')
+        except IndexError:
+            pass
+
     plt.show()
     return fig, axs
 
 
 def process_adcp(start, end, lim_type='cast', is_long_section=False,
                  save_name=None):
+    m = pickle.load(open('/home/hugke729/PhD/Maps/penny_strait.pickle', 'rb'))
     data = read_data(False)
     data = truncate_data(data, start, end, lim_type=lim_type)
     data['vel'] = subtract_vessel_velocity(data['vel'], data['bt_vel'])
     data['lat'], data['lon'] = get_latlon(data)
     data = mask_seafloor(data)
     data['along_vel'] = along_component(
-        data['vel'], data['heading'], data['lat'], is_long_section)
+        data['vel'], data['lat'], data['lon'], m, is_long_section)
     data = smooth_output(data)
     data = create_dist_coord(data, is_long_section)
     data = clean_data_dict(data)
@@ -335,6 +363,6 @@ def process_adcp(start, end, lim_type='cast', is_long_section=False,
     return data
 
 
-# if __name__ == '__main__':
-    # data = process_adcp(78, 371, lim_type='cast', is_long_section=True)
-    # plot_section(data, is_long_section=True)
+if __name__ == '__main__':
+    data = process_adcp(957, 1052, lim_type='cast', is_long_section=True)
+    plot_section(data, is_long_section=True)
