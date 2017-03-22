@@ -40,6 +40,7 @@ def flipy(ax=None):
 def flip(ax):
     flipy(ax)
 
+
 def flipys():
     fig_list = plt.get_fignums()
     for i in fig_list:
@@ -258,3 +259,14 @@ def get_all_handles_labels(axs):
     labels = list(labels)
 
     return handles, labels
+
+
+def add_colorbar_to_subplot(cax, fig):
+    """Adds a colorbar as per normal, but ensures subplots are appropriately
+    adjusted"""
+    axs = fig.get_axes()
+    cbar_to_rm = fig.colorbar(cax, ax=axs)
+    cbar = fig.colorbar(cax)
+    cbar_to_rm.remove()
+    plt.draw()
+    return cbar
