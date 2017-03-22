@@ -652,7 +652,7 @@ def fill_gaps_in_2d_transect(Z, n=1):
 
 
 def bin_1d_transect(x, z, x_out):
-    return bin_2d_transect(x, np.r_[0.5], z, x_out, np.r_[:2])
+    return bin_2d_transect(x, np.r_[0.5], z, x_out, np.r_[:2]).squeeze()
 
 
 def interp3d_array_on_fly(Q, i_out):
