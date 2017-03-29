@@ -5,14 +5,15 @@ from pandas import read_csv
 
 
 def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
-                       fmt=r'%r', label_levels=None):
+                       fmt=r'%r', label_levels=None, contour_kw=dict()):
     """Add sigma contours to an existing T/S diagram"""
     Slim = ax.get_xlim()
     Tlim = ax.get_ylim()
     S, T = np.meshgrid(np.linspace(Slim[0], Slim[1], n),
                        np.linspace(Tlim[0], Tlim[1], n))
     sigma = dens0(S, T) - 1000
-    cax = ax.contour(S, T, sigma, levels, colors=color, zorder=-5)
+    cax = ax.contour(S, T, sigma, levels, colors=color, zorder=-5,
+                     **contour_kw)
     label_levels = levels[::2] if label_levels is None else label_levels
     plt.clabel(cax, label_levels, inline=True, fmt=fmt, zorder=5)
     plt.draw()
