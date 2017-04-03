@@ -258,7 +258,7 @@ def concatenate_binned_arrays(
     if flatten_transect:
         sill_names = 'sill_1', 'sill_2'
         x_sills_both = (48, 58), (75, 90)
-        x_ranges_both = (0, 75), (70, 200)
+        x_ranges_both = (0, 75), (0, 200)
         for sill_name, x_sills, x_ranges in zip(
                 sill_names, x_sills_both, x_ranges_both):
 
@@ -879,7 +879,7 @@ def two_layer_treatment(mvp_dict, x_sills, x_ranges):
 
 def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
     """Calculate composite Froude number G"""
-    G, top_u, bot_u, Fr_top_sq, Fr_bot_sq = prell(
+    G, top_u, bot_u, Fr_top_sq, Fr_bot_sq = preall(
         gprime.shape, copies=5, initial_value=np.nan)
 
     for i, u_i in enumerate(along_u.T):
@@ -893,10 +893,10 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
         top_u[i] = ma.mean(u_i[top_layer_inds])
         bot_u[i] = ma.mean(u_i[bot_layer_inds])
 
-        Fr_top_sq = top_u[i]**2/(gprime[i]*interface_depth[i])
-        Fr_bot_sq = bot_u[i]**2/(gprime[i]*(seafloor[i] - interface_depth[i]))
+        Fr_top_sq[i] = top_u[i]**2/(gprime[i]*interface_depth[i])
+        Fr_bot_sq[i] = bot_u[i]**2/(gprime[i]*(seafloor[i] - interface_depth[i]))
 
-        G_squared = (Fr_top_sq + Fr_bot_sq)
+        G_squared = (Fr_top_sq[i] + Fr_bot_sq[i])
 
         G[i] = np.sqrt(G_squared)
 
@@ -915,15 +915,11 @@ def combine_MVP_ADCP(transect_name):
 
     Inputs
     ------
-    mvp_dict : dict
-        output from concatenate_binned_arrays in this file
-    adcp_dict : dict
-        output from process_adcp in ./MyADCP.py
+    transect_name: str
+        One of 'full_long', 'maury_repeat_X'
 
     Returns
     -------
-    combined_grid : dict
-        output on the grid specified within this function
 
     Caveats
     -------
@@ -985,16 +981,19 @@ def combine_MVP_ADCP(transect_name):
     filterwarnings('ignore', '.*converting a masked element*.')
 
     G = dict()
-    for sill_name in ['sill_1', 'sill_2']:
-        G[sill_name] = calc_froude_number(
-            u_along, mvp_dict[sill_name]['gprime'],
-            mvp_dict[sill_name]['interface_depth'], z, mvp_dict['bottom'])
+    Fr_top_sq = dict()
+    Fr_bot_sq = dict()
+
+    for sill in ['sill_1', 'sill_2']:
+        G[sill], Fr_top_sq[sill], Fr_bot_sq[sill] = calc_froude_number(
+            u_along, mvp_dict[sill]['gprime'],
+            mvp_dict[sill]['interface_depth'], z, mvp_dict['bottom'])
 
     out_dict = dict(X=X, x=X[0, :], z=Z[:, 0], Z=Z, G=G)
     out_dir = '/home/hugke729/PhD/Data/Shipboard/combined_mvp_adcp/'
     pickle.dump(out_dict, open(out_dir + transect_name + '.p', 'wb'))
 
-    return G
+    return G, Fr_top_sq, Fr_bot_sq
 
 
 if __name__ == '__main__':
@@ -1004,11 +1003,11 @@ if __name__ == '__main__':
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
     # plt.plot(D['cast'], D['eps_zavg'])
 
-    i = 382
+    i = 141
     _, data = loadMVP_m1(i, bin_data=False)
 
-    eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
-    fig, ax = plt.subplots(ncols=2, sharey=True)
+    # eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
+    # fig, ax = plt.subplots(ncols=2, sharey=True)
     # ax[0].plot(data['prho
     # ax[1].plot(ma.log10(D['eps'][i, :]), D['z_c'], 'o')
     # flipy(ax[0])
