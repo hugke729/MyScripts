@@ -261,12 +261,13 @@ def get_all_handles_labels(axs):
     return handles, labels
 
 
-def add_colorbar_to_subplot(cax, fig):
+def add_colorbar_to_subplot(cax, fig, ax=None):
     """Adds a colorbar as per normal, but ensures subplots are appropriately
     adjusted"""
     axs = fig.get_axes()
     cbar_to_rm = fig.colorbar(cax, ax=axs)
-    cbar = fig.colorbar(cax)
+    ax = plt.gca() if ax == None else ax
+    cbar = fig.colorbar(cax, ax=ax)
     cbar_to_rm.remove()
     plt.draw()
     return cbar
