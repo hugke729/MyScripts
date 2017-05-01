@@ -1,5 +1,6 @@
 # Keep this here because making a filter is never as simple as I would expect
 from scipy.signal import freqz, lfilter, butter
+from scipy.signal import filtfilt as ff
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -15,9 +16,10 @@ def butter_bandpass(lowcut, highcut, Fs, order=5):
     return b, a
 
 
-def butter_bandpass_filter(data, lowcut, highcut, Fs, order=5, plot_filter=False):
+def butter_bandpass_filter(
+        data, lowcut, highcut, Fs, order=5, plot_filter=False, filtfilt=True):
     b, a = butter_bandpass(lowcut, highcut, Fs, order=order)
-    y = lfilter(b, a, data)
+    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
@@ -30,9 +32,10 @@ def butter_highpass(highcut, Fs, order=5):
     return b, a
 
 
-def butter_highpass_filter(data, highcut, Fs, order=5, plot_filter=False):
+def butter_highpass_filter(
+        data, highcut, Fs, order=5, plot_filter=False, filtfilt=True):
     b, a = butter_highpass(highcut, Fs, order=order)
-    y = lfilter(b, a, data)
+    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
@@ -45,9 +48,10 @@ def butter_lowpass(lowcut, Fs, order=5):
     return b, a
 
 
-def butter_lowpass_filter(data, lowcut, Fs, order=5, plot_filter=False):
+def butter_lowpass_filter(
+        data, lowcut, Fs, order=5, plot_filter=False, filtfilt=True):
     b, a = butter_lowpass(lowcut, Fs, order=order)
-    y = lfilter(b, a, data)
+    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
