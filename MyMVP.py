@@ -629,7 +629,7 @@ def calc_eps(p, prho, z, plot_overturns=False):
     # Calc L_T and derive dissipation from parameterisation
     L_T[inds], N2[inds] = calc_Lt(
         prho[inds], z[inds], plot_overturns=plot_overturns)
-    eps = L_T**2*N2**(3/2)
+    eps = (0.8*L_T)**2*N2**(3/2)
 
     return eps, L_T
 
@@ -1003,7 +1003,7 @@ if __name__ == '__main__':
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
     # plt.plot(D['cast'], D['eps_zavg'])
 
-    i = 141
+    i = 1030
     _, data = loadMVP_m1(i, bin_data=False)
 
     # eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
