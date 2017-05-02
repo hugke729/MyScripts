@@ -1,6 +1,7 @@
 from matplotlib.lines import Line2D
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 import numpy as np
 from MyNumpyTools import minmax
 from MyFunctions import flatten2Dlist
@@ -266,8 +267,28 @@ def add_colorbar_to_subplot(cax, fig, ax=None):
     adjusted"""
     axs = fig.get_axes()
     cbar_to_rm = fig.colorbar(cax, ax=axs)
-    ax = plt.gca() if ax == None else ax
+    ax = plt.gca() if ax is None else ax
     cbar = fig.colorbar(cax, ax=ax)
     cbar_to_rm.remove()
     plt.draw()
     return cbar
+
+
+def outlined_text(x, y, s, ax, top_color='k', bot_color='w', linewidth=3,
+                  text_kw=dict()):
+    """Add text that stands out
+
+    Inputs
+    ------
+    x, y, s: see plt.text
+    ax: matplotlib axis object
+    top_color: color of text
+    bot_colot: color of outline
+    text_kw: arguments to pass to plt.text
+
+    See http://matplotlib.org/users/patheffects_guide.html
+    """
+    text = ax.text(x, y, s, color=top_color, **text_kw)
+    text.set_path_effects([
+        patheffects.Stroke(linewidth=linewidth, foreground=bot_color),
+        patheffects.Normal()])
