@@ -250,3 +250,9 @@ def prev_pow_2(x):
 
 def midpoint(x, axis=0):
     return x[:-1] + np.diff(x, axis=axis)/2
+
+
+def normalize(arr, axis=None):
+    ptp_opts = dict(axis=axis, keepdims=True)
+    ptp = np.max(arr, **ptp_opts) - np.min(arr, **ptp_opts)
+    return (arr - arr.min(axis=axis, keepdims=True))/ptp
