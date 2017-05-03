@@ -615,7 +615,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     return thorpe_scales, N2
 
 
-def calc_eps(p, prho, z, plot_overturns=False):
+def calc_eps(p, prho, z, plot_overturns=False, n_smooth_rho=8):
     """Calculate dissipation using Thorpe scale"""
 
     down_inds = select_downcast(p, for_overturn_calcs=True)
@@ -628,7 +628,8 @@ def calc_eps(p, prho, z, plot_overturns=False):
 
     # Calc L_T and derive dissipation from parameterisation
     L_T[inds], N2[inds] = calc_Lt(
-        prho[inds], z[inds], plot_overturns=plot_overturns)
+        prho[inds], z[inds], plot_overturns=plot_overturns,
+        n_smooth_rho=n_smooth_rho)
     eps = (0.8*L_T)**2*N2**(3/2)
 
     return eps, L_T
@@ -996,19 +997,41 @@ def combine_MVP_ADCP(transect_name):
     return G, Fr_top_sq, Fr_bot_sq
 
 
-if __name__ == '__main__':
+def quantify_effect_smoothing_freq():
+    """Test how much total dissipation changes by smoothing density to
+    2, 3, 4, and 6 Hz"""
+    casts = np.r_[45:1150:3]
+    eps_all = np.full((4, casts.size), np.nan)
+    for i, cast in enumerate(casts):
+        try:
+            print(cast, end=' ')
+            _, data = loadMVP_m1(cast, bin_data=False)
+
+            for j, n_smooth_rho in enumerate([4, 6, 8, 12]):
+                eps, Lt = calc_eps(
+                    data['p_raw'], data['prho'], data['z'],
+                    plot_overturns=False, n_smooth_rho=n_smooth_rho)
+                eps_all[j, i] = eps.sum()
+        except IndexError:
+            pass
+
+    print('\n\nCompared to low-passing at 3Hz, filtering at a different freq\n'
+          'produces dissipation values of the following relative magnitude:')
+    relative_mags = [ma.mean(ma.masked_invalid(eps_all[i]/eps_all[2]))
+                     for i in [0, 1, 3]]
+    print("""
+    6 Hz: {0:2.2f}
+    4 Hz: {1:2.2f}
+    2 Hz: {2:2.2f}
+
+    """.format(*relative_mags))
+    return eps_all
+
+
+# if __name__ == '__main__':
+    # quantify_effect_smoothing_freq()
     # D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (48, 58), (0, 80))
     # second sill: x_sills = (75, 90), x_ranges = (65, 200)
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
     # plt.plot(D['cast'], D['eps_zavg'])
-
-    i = 1030
-    _, data = loadMVP_m1(i, bin_data=False)
-
-    # eps, Lt = calc_eps(data['p_raw'], data['prho'], data['z'], True)
-    # fig, ax = plt.subplots(ncols=2, sharey=True)
-    # ax[0].plot(data['prho
-    # ax[1].plot(ma.log10(D['eps'][i, :]), D['z_c'], 'o')
-    # flipy(ax[0])
-
