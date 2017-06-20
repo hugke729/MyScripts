@@ -642,10 +642,16 @@ def plot_section(name, limits, mvp_quantity='theta', figsize=None,
     return fig
 
 
-def plot_ctd_as_section(cast_nos):
+def plot_ctd_as_section(cast_nos, output_transect_name=None):
+    """Plot CTD profiles as cross section: filled contour for temp, contour
+    lines for density
+
+    Optionally save outuput as transect to
+    /home/hugke729/PhD/Data/Shipboard/CTD/transects
+    """
     data_dir = '/home/hugke729/PhD/Data/Shipboard/CTD/processed/'
     xyt_file = data_dir + 'xyt_summary.csv'
-    casts, lats, lons, utc_time = np.genfromtxt(
+    casts, lats, lons, utc_time, depth = np.genfromtxt(
         xyt_file, skip_header=1, unpack=True, delimiter=',')
     xyt = {cast: (lat, lon) for cast, lat, lon in zip(casts, lats, lons)}
 
@@ -687,6 +693,13 @@ def plot_ctd_as_section(cast_nos):
     ax.set(ylim=(250, 0), ylabel='Depth (m)', xlabel='Distance eastward (km)')
 
     ax.set(title='CTD casts: ' + str(cast_nos[0]) + '--' + str(cast_nos[-1]))
+
+    if output_transect_name is not None:
+        D = dict(cast=cast, lat=lat, lon=lon, theta=theta, S=S, sigma=sigma,
+                 prho=sigma+1000, dist=dist, bottom=depth, z=z)
+        out_dir = '/home/hugke729/PhD/Data/Shipboard/CTD/transects/'
+        out_file = out_dir + output_transect_name + '.p'
+        pickle.dump(D, open(out_file, 'wb'))
 
     return ax
 
