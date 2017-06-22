@@ -210,7 +210,7 @@ def ma_percentile(a, q, axis=None, **kw_args):
     raise DeprecationWarning(err_msg)
 
 
-def get_contour(x, y, Z, levels):
+def get_contour(x, y, Z, levels, fill_value=np.nan):
     """Get just the data that would be returned by plt.contour
 
     The output is interpolated onto the original x grid
@@ -223,6 +223,9 @@ def get_contour(x, y, Z, levels):
         Array that you would input into plt.contour
     levels : float, array, or list
         Value(s) at which contours are calculated
+    sort_x : float or 'extrapolate'
+        Value passed to interp1d
+        Setting to 'extrapolate' may help remove NaNs
 
     Returns
     -------
@@ -254,7 +257,9 @@ def get_contour(x, y, Z, levels):
         nseg = len(res) // 2
         x_cont = np.vstack(res[:nseg])[:, 0]
         z_cont = np.vstack(res[:nseg])[:, 1]
-        f = interp1d(x_cont, z_cont, fill_value=np.nan, bounds_error=False)
+
+        f = interp1d(
+            x_cont, z_cont, fill_value=fill_value, bounds_error=False)
         out[:, i] = f(x)
 
     return out.squeeze()
