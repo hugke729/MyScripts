@@ -797,18 +797,22 @@ def calc_vol_flux(name):
     # Actual cross-sectional area (sq metres)
     # Calculated by interpolating across my bathymetry map
     # Wellington_cross_3 accounts for bearing (6687758 m2 x sin(313.7))
+    # Wellington_CTD_1 accounts for ADCP track not following line of longitude
+
     actual_area = dict(
-        wellington_cross_1=4629513,
-        wellington_cross_2=6378842,
-        wellington_cross_3=4835029,
-        wellington_CTD_1=7562074,
-        wellington_CTD_2=4564666,
-        wellington_CTD_3=5188899,
-        barrow_CTD=12452423)
+        wellington_cross_1=4629e3,
+        wellington_cross_2=6378e3,
+        wellington_cross_3=4835e3,
+        wellington_CTD_1=6972e3,
+        wellington_CTD_2=4564e3,
+        wellington_CTD_3=5188e3,
+        barrow_CTD=12452e3)
 
     area_percent = 100*area/actual_area[name]
     print('    Percent area covered by ADCP: {0:2.0f}\n\n'.format(area_percent))
 
 
 # if __name__ == '__main__':
-#     froude_plots()
+#     plot_ctd_as_section(np.r_[102:107], 'wellington_CTD_1')
+#     plot_ctd_as_section(np.r_[107:112], 'wellington_CTD_2')
+#     plot_ctd_as_section(np.r_[112:117], 'wellington_CTD_3')
