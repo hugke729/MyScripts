@@ -430,6 +430,15 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
     return all_outputs
 
 
+def T_to_sigma(T, tAlpha=2e-4, T_0=14.9, rho_0=1026):
+    """Convert model temperature to density"""
+    tAlpha = 2e-4
+    rho_0 = 1026
+    T_0 = 14.9
+    sigma_0 = rho_0 - 1000
+    return sigma_0 + tAlpha*rho_0*(T_0 - T)
+
+
 if __name__ == '__main__':
     run_dir = '/home/hugke729/mitgcm/test_cases/hfacs/run/'
     g = get_grid(run_dir)
