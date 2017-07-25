@@ -256,3 +256,25 @@ def normalize(arr, axis=None):
     ptp_opts = dict(axis=axis, keepdims=True)
     ptp = np.max(arr, **ptp_opts) - np.min(arr, **ptp_opts)
     return (arr - arr.min(axis=axis, keepdims=True))/ptp
+
+
+def arange_like(arr):
+    return np.arange(len(arr))
+
+
+def fractional_roll(arr, shift):
+    """Like np.roll, but allows for fractional, interpolated increments
+
+    Only tested on 1D arrays"""
+    if shift == 0:
+        return arr
+    elif np.abs(shift) > arr.size:
+        print('Shift larger than array')
+        return None
+    else:
+        ceil_shift = np.ceil(np.abs(shift)).astype(int)
+
+        tmp_arr = np.r_[arr[-ceil_shift:], arr, arr[:ceil_shift]]
+        tmp_idx = np.arange(-ceil_shift, len(arr) + ceil_shift)
+
+        return np.interp(arange_like(arr) - shift, tmp_idx, tmp_arr)
