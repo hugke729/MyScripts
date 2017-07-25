@@ -292,3 +292,11 @@ def outlined_text(x, y, s, ax, top_color='k', bot_color='w', linewidth=3,
     text.set_path_effects([
         patheffects.Stroke(linewidth=linewidth, foreground=bot_color),
         patheffects.Normal()])
+
+
+def draw_rect(x0, x1, y0, y1, ax=None, c='k', **plot_kwargs):
+    if ax is None:
+        ax = plt.gca()
+    line = ax.plot((x0, x1, x1, x0, x0), (y0, y0, y1, y1, y0),
+                   c=c, **plot_kwargs)[0]
+    return line
