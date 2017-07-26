@@ -441,6 +441,11 @@ def sigma_to_T(sigma, tAlpha=2e-4, T_0=14.9, rho_0=1026):
     return T_0 - (sigma + 1000 - rho_0)/(tAlpha*rho_0)
 
 
+def rho_to_T(rho, tAlpha=2e-4, T_0=14.9, rho_0=1026):
+    """Convert density to temperature for use in model"""
+    return T_0 - (rho - rho_0)/(tAlpha*rho_0)
+
+
 if __name__ == '__main__':
     run_dir = '/home/hugke729/mitgcm/test_cases/hfacs/run/'
     g = get_grid(run_dir)
