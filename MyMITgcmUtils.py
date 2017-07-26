@@ -432,11 +432,13 @@ def interpolate_output_to_new_grid(run_dir, last_iter, new_grid,
 
 def T_to_sigma(T, tAlpha=2e-4, T_0=14.9, rho_0=1026):
     """Convert model temperature to density"""
-    tAlpha = 2e-4
-    rho_0 = 1026
-    T_0 = 14.9
     sigma_0 = rho_0 - 1000
     return sigma_0 + tAlpha*rho_0*(T_0 - T)
+
+
+def sigma_to_T(sigma, tAlpha=2e-4, T_0=14.9, rho_0=1026):
+    """Convert density to temperature for use in model"""
+    return T_0 - (sigma + 1000 - rho_0)/(tAlpha*rho_0)
 
 
 if __name__ == '__main__':
