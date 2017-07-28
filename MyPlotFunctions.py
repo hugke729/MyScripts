@@ -236,11 +236,16 @@ def pcolor_variable_y(x, Y, C, ax=None, **kwargs):
     return caxs[0]
 
 
-def get_xy_line_data(ax):
+def get_xy_line_data(ax, sort_x=False):
     """Get all data on an axis corresponding to line plots"""
     all_lines = [x for x in ax.get_children() if 'Line2D' in str(x)]
     xdata = np.hstack([line.get_xdata() for line in all_lines])
     ydata = np.hstack([line.get_ydata() for line in all_lines])
+
+    if sort_x:
+        sort_inds = np.argsort(xdata)
+        xdata = xdata[sort_inds]
+        ydata = ydata[sort_inds]
 
     return xdata, ydata
 
