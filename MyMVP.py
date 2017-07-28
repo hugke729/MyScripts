@@ -20,6 +20,8 @@ from MyFunctions import (scalar_projection, angle, central_diff_gradient,
                          get_contour)
 from MySysUtils import preall
 from MyInterp import smooth1d_with_holes as smooth
+from MyFilters import butter_lowpass_filter as blf
+from MyFilters import butter_highpass_filter as bhf
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
 from MyNumpyTools import (nan_or_masked, nan_or_masked_to_value, logical_all,
@@ -390,12 +392,11 @@ def select_downcast(pressure, for_overturn_calcs=False):
     return falling_inds
 
 
-def lag_temperature(C, T, p):
+def lag_temperature(C, T, p, lag_n = -3.2):
     """Lag temperature by a fixed number of samples"""
     # See /home/hugke729/PhD/Python/MVP/obtain_phase_lag.py
     # Lag is negative, so it is actually conductivity lagging, but leave
     # names as is
-    lag_n = -3.2
     samples = np.arange(len(T))
     T = np.interp(samples, samples + lag_n, T)
 
@@ -901,10 +902,10 @@ def calc_froude_number(along_u, gprime, interface_depth, adcp_z, seafloor):
 
         G[i] = np.sqrt(G_squared)
 
-    fig, ax = plt.subplots(nrows=2, sharex=True)
-    ax[0].plot(top_u, 'b')
-    ax[0].plot(bot_u, 'r')
-    ax[1].plot(seafloor)
+    # fig, ax = plt.subplots(nrows=2, sharex=True)
+    # ax[0].plot(top_u, 'b')
+    # ax[0].plot(bot_u, 'r')
+    # ax[1].plot(seafloor)
     return G, Fr_top_sq, Fr_bot_sq
 
 
@@ -1028,7 +1029,12 @@ def quantify_effect_smoothing_freq():
     return eps_all
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
+    for cast in np.r_[550]:
+        try:
+            xyt, data, binned = loadMVP_m1(cast, bin_data=True)
+        except IndexError:
+            pass
     # quantify_effect_smoothing_freq()
     # D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
     # rho_interface, gprime, z_interface = two_layer_treatment(D, (48, 58), (0, 80))
