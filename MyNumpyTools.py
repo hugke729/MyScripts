@@ -278,3 +278,9 @@ def fractional_roll(arr, shift):
         tmp_idx = np.arange(-ceil_shift, len(arr) + ceil_shift)
 
         return np.interp(arange_like(arr) - shift, tmp_idx, tmp_arr)
+
+
+def arangep1(start, stop, step, dtype=None):
+    """Like np.arange, but the last value is >= stop, as opposed to < stop"""
+    tmp = np.arange(start, stop, step)
+    return np.r_[tmp, tmp[-1] + step]
