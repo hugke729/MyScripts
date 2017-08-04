@@ -290,3 +290,32 @@ def click_km():
     print('Distance, dx, dy: {0:6.1f} km'.format(dist_km))
 
     return dist_km
+
+
+def disp_both(ax2, ax1, left_fmt='.3f', right_fmt='.3f'):
+    """Show cursor positions for both axes in a twinx or twiny set up
+
+    Input
+    -----
+    ax2: Second axis. The one generated with ax.twiny
+    ax1: The first axis
+    left_fmt, right_fmt: str describing formatting
+
+    https://stackoverflow.com/questions/
+    21583965/matplotlib-cursor-value-with-two-axes"""
+
+    def make_format(ax2, ax1):
+        # current and other are axes
+        def format_coord(x, y):
+            # x, y are data coordinates
+            # convert to display coords
+            display_coord = ax2.transData.transform((x,y))
+            inv = ax1.transData.inverted()
+            # convert back to data coords with respect to ax
+            ax_coord = inv.transform(display_coord)
+            coords = [ax_coord, (x, y)]
+            fmt = '({:' + left_fmt + '}, {:' + right_fmt + '})'
+            return ('Left: {:<40}    Right: {:<}'
+                    .format(*[fmt.format(x, y) for x,y in coords]))
+        return format_coord
+    ax2.format_coord = make_format(ax2, ax1)
