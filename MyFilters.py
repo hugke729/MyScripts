@@ -17,9 +17,10 @@ def butter_bandpass(lowcut, highcut, Fs, order=5):
 
 
 def butter_bandpass_filter(
-        data, lowcut, highcut, Fs, order=5, plot_filter=False, filtfilt=True):
+        data, lowcut, highcut, Fs, order=5, plot_filter=False, filtfilt=True,
+        axis=-1):
     b, a = butter_bandpass(lowcut, highcut, Fs, order=order)
-    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
+    y = ff(b, a, data, axis) if filtfilt else lfilter(b, a, data, axis)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
@@ -33,9 +34,9 @@ def butter_highpass(highcut, Fs, order=5):
 
 
 def butter_highpass_filter(
-        data, highcut, Fs, order=5, plot_filter=False, filtfilt=True):
+        data, highcut, Fs, order=5, plot_filter=False, filtfilt=True, axis=-1):
     b, a = butter_highpass(highcut, Fs, order=order)
-    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
+    y = ff(b, a, data, axis) if filtfilt else lfilter(b, a, data, axis)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
@@ -49,9 +50,9 @@ def butter_lowpass(lowcut, Fs, order=5):
 
 
 def butter_lowpass_filter(
-        data, lowcut, Fs, order=5, plot_filter=False, filtfilt=True):
+        data, lowcut, Fs, order=5, plot_filter=False, filtfilt=True, axis=-1):
     b, a = butter_lowpass(lowcut, Fs, order=order)
-    y = ff(b, a, data) if filtfilt else lfilter(b, a, data)
+    y = ff(b, a, data, axis) if filtfilt else lfilter(b, a, data, axis)
     if plot_filter:
         filter_plot(b, a, Fs)
     return y
