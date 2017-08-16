@@ -137,20 +137,22 @@ def pull_ax_vert(ax, dist):
     plt.draw()
 
 
-def subplot_cbar(fig, ax, cax):
+def subplot_cbar(fig, ax, cax, r=0.8, b=0.1, w=0.03, gap=0.02):
     """Add a colorbar to right of panel of a suplot with rows
 
     Inputs
     ------
     fig: figure instance
     ax: axis on which to add subplot
-    cax: the contour/pcolor/etc instance associated with colorbar"""
-    r = 0.8
-    b = 0.1
+    cax: the contour/pcolor/etc instance associated with colorbar
+    r: right edge of main panels in fractions of figure
+    b: bottom of main panels in fractions of figure
+    gap: gap between colorbar and man panel in fractions of figure
+    w: width of colorbar? in fractions of figure
+    """
     fig.subplots_adjust(right=r, bottom=b)
     h = pos(ax)[3]
-    l = 0.82
-    w = 0.03
+    l = gap + r
     cbar_ax = fig.add_axes([l, b, w, h])
     cbar = plt.colorbar(cax, cax=cbar_ax)
     return cbar
