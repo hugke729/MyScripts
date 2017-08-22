@@ -1,7 +1,10 @@
-from seawater.eos80 import dens0
+from scipy.optimize import fsolve
+from seawater.eos80 import dens0, salt
+from seawater.constants import c3515
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas import read_csv
+from MyNumpyTools import rms
 
 
 def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
@@ -82,3 +85,54 @@ def read_tide_csv(tide_file):
     dates = [d.to_pydatetime() for d in table.Date]
 
     return dates, table
+
+
+def C_from_S_and_T(S, T, p=0):
+    """Find conductivity based on salinity and temperature
+
+    This inverts the standard direction of the equations where S(C, T, p)
+    """
+
+    def func(R):
+        return salt(R, T, p) - S
+
+    R0 = 26.6/c3515  # 26.6 is typical conductivity for CAA
+    R_out = fsolve(func, R0)[0]
+    C_out = R_out*c3515
+
+    return C_out
+
+
+def gk96_xi(S, T, print_both_xi=False):
+    """Calculate the xi parameter defined in Galbraith and Kelley
+
+    Their method is defined on page 694
+
+    Inputs
+    ------
+    S, T: array-like
+        Values of salinity and temperature within the overturn
+    print_both_xi: bool
+        If print, give both xi_T and xi_S
+
+    This has been checked by digitizing to my best ability Figure 12 of
+    GK96 (both top panels) and ensuring I get comparable result
+    """
+    rho = dens0(S, T)
+
+    b_S, a_S = np.polyfit(S, rho, 1)
+    b_T, a_T = np.polyfit(T, rho, 1)
+
+    rho_S = a_S + b_S*S
+    rho_T = a_T + b_T*T
+
+    N_times_rms_thorpe_sq = np.sum((rho - np.sort(rho))**2)
+    rms_thorpe = ((1/S.size)*N_times_rms_thorpe_sq)**0.5
+    xi_S = rms(rho_S - rho)/rms_thorpe
+    xi_T = rms(rho_T - rho)/rms_thorpe
+
+    if print_both_xi:
+        print('ξ_S: {0:2.2g}'.format(xi_S))
+        print('ξ_T: {0:2.2g}'.format(xi_T))
+
+    return np.max(np.r_[xi_S, xi_T])
