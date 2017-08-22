@@ -284,3 +284,8 @@ def arangep1(start, stop, step, dtype=None):
     """Like np.arange, but the last value is >= stop, as opposed to < stop"""
     tmp = np.arange(start, stop, step)
     return np.r_[tmp, tmp[-1] + step]
+
+
+def inrange(x, x_range):
+    """Return true for all elements xrange[0] < x < xrange[1]"""
+    return np.logical_and(x > x_range[0], x < x_range[1])
