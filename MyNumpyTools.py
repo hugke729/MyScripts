@@ -289,3 +289,8 @@ def arangep1(start, stop, step, dtype=None):
 def inrange(x, x_range):
     """Return true for all elements xrange[0] < x < xrange[1]"""
     return np.logical_and(x > x_range[0], x < x_range[1])
+
+
+def rms(x):
+    """Root-mean square"""
+    return np.sqrt(x.dot(x)/x.size)
