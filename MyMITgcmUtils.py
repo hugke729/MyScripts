@@ -1,9 +1,11 @@
+import re
 from warnings import filterwarnings
 import numpy as np
 import numpy.ma as ma
 import os
 import sys
 from subprocess import check_output
+from xarray import open_dataset
 from scipy import ndimage as nd
 from scipy.interpolate import RegularGridInterpolator as rgi
 from MITgcmutils import rdmds
@@ -229,18 +231,27 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True):
         Whether to read in hFacs
     squeeze_hfacs: bool
         Whether to remove singleton dimensions from hfacs
+
+    Implementation for netcdf grid file could use work
     """
-    dx = rdmds(run_dir + 'DXG*')[0, :]
-    dy = rdmds(run_dir + 'DYG*')[:, 0]
-    dz = rdmds(run_dir + 'DRF*')[:, 0]
-    added_attrs = dict(depth=rdmds(run_dir + 'Depth*').squeeze())
+    try:
+        dx = rdmds(run_dir + 'DXG*')[0, :]
+        dy = rdmds(run_dir + 'DYG*')[:, 0]
+        dz = rdmds(run_dir + 'DRF*')[:, 0]
+        added_attrs = dict(depth=rdmds(run_dir + 'Depth*').squeeze())
 
-    if hFacs:
-        for k in ['S', 'W', 'C']:
-            tmp = rdmds(run_dir + 'hFac' + k)
-            added_attrs['hFac' + k] = tmp.squeeze() if squeeze_hfacs else tmp
+        if hFacs:
+            for k in ['S', 'W', 'C']:
+                tmp = rdmds(run_dir + 'hFac' + k)
+                added_attrs['hFac' + k] = tmp.squeeze() if squeeze_hfacs else tmp
 
-    g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
+        g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
+    except IOError:
+        # Needs work on tile number
+        g = open_dataset(run_dir + '/grid.t001.nc')
+        dx, dy, dz = [g[dim].data for dim in ['dxF', 'dyF', 'drF']]
+        dx, dy = dx[0, :], dy[:, 0]
+        g = Grid(dx, dy, dz, x0=x0, y0=y0)
 
     return g
 
@@ -446,28 +457,25 @@ def rho_to_T(rho, tAlpha=2e-4, T_0=14.9, rho_0=1026):
     return T_0 - (rho - rho_0)/(tAlpha*rho_0)
 
 
-if __name__ == '__main__':
-    run_dir = '/home/hugke729/mitgcm/test_cases/hfacs/run/'
-    g = get_grid(run_dir)
-    dx_new = np.ones(120)*200/2
-    dz_new = np.ones(41)*5
-    gout = Grid(dx_new, g.dy, dz_new)
+def open_simulation(filename, **kwargs):
+    """Wrapper around xarray.open_dataset to do simple clean up things
 
-    T = rdmds(run_dir + 'T*', [100]).squeeze()
-    U = rdmds(run_dir + 'U*', [100]).squeeze()
-    Eta = rdmds(run_dir + 'Eta*', [100]).squeeze()
-    out = interpolate_output_to_new_grid(run_dir, 100, gout)
+    Clean ups
+    ---------
+    0) Guess file extension
+    1) Squeeze
+    2) Rename Z coordinate. MITgcm outputs awful things like Zld000030 instead
+    of simply Z.
+    """
+    std_ext = '.0000000000.t001.nc'
+    if filename.find(std_ext) == -1:
+        filename += std_ext
 
-    fig, axs = plt.subplots(ncols=2, sharey=True, sharex=True)
-    cax = axs[0].pcolormesh(g.xf, g.zf, ma.masked_equal(T, 0), cmap='jet')
-    clim = cax.get_clim()
-    axs[1].pcolormesh(gout.xf, gout.zf,
-                      ma.masked_invalid(out['T'].squeeze()), cmap='jet',
-                      vmin=clim[0], vmax=clim[1])
-    # cax = axs[0].pcolormesh(g.xf, g.zf, T, cmap='jet')
-    # axs[1].pcolormesh(gout.xf, gout.zf,
-    #                   ma.masked_invalid(out['T'].squeeze()), cmap='jet')
-    # axs[0].plot(g.xc, Eta, 'ko-')
-    # axs[1].plot(gout.xc, out['Eta'].squeeze(), 'ko-')
-    fig.colorbar(cax)
-    flipy()
+    ds = open_dataset(filename, **kwargs).squeeze()
+
+    pattern = re.compile('Z[a-z]{2}[0-9]{6}')
+    for k in ds.dims:
+        if pattern.match(k) is not None:
+            ds.rename({k: 'Z'}, inplace=True)
+
+    return ds
