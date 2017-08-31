@@ -269,6 +269,14 @@ def get_all_handles_labels(axs):
     return handles, labels
 
 
+def centre_yaxis_at_0(ax, pad_fac=1.05, plot_0=False):
+    """Set ylims so that 0 in middle and max and min are equal and opposite"""
+    ylim_max = np.max(np.abs(get_xy_line_data(ax)[1]))*pad_fac
+    ax.set(ylim=(-ylim_max, ylim_max))
+    if plot_0:
+        ax.axhline(0, color='grey', lw=0.5, zorder=-5)
+
+
 def add_colorbar_to_subplot(cax, fig, ax=None):
     """Adds a colorbar as per normal, but ensures subplots are appropriately
     adjusted"""
