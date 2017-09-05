@@ -11,6 +11,7 @@ from scipy.interpolate import RegularGridInterpolator as rgi
 from MITgcmutils import rdmds
 from MyGrids import Grid
 from MyInterp import nan_gaussian_filter
+from MyNumpyTools import shift_slice
 
 
 def write_for_mitgcm(filename_in, array_in, prec=64):
@@ -218,7 +219,8 @@ def get_run_settings(output_file):
     return D
 
 
-def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True):
+def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True,
+             xslice=np.s_[0:], yslice=np.s_[0:], zslice=np.s_[0:]):
     """Create a Grid object from model's output grid files
 
     Inputs
@@ -231,27 +233,64 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True):
         Whether to read in hFacs
     squeeze_hfacs: bool
         Whether to remove singleton dimensions from hfacs
+    xslice, yslice, zslice: slice objects
+        Allow reading of part of grid
+        Not implemented for mds grid
 
     Implementation for netcdf grid file could use work
     """
+
+    def hfac_mnc(W_S_or_C, squeeze_hfacs=squeeze_hfacs,
+                 x=xslice, y=yslice, z=zslice):
+        tmp_hfac = g['HFac' + W_S_or_C].isel(Z=zslice)
+        if W_S_or_C == 'W':
+            tmp_hfac = tmp_hfac.isel(Xp1=xslice)
+        else:
+            tmp_hfac = tmp_hfac.isel(X=xslice)
+        if W_S_or_C == 'S':
+            tmp_hfac = tmp_hfac.isel(Yp1=yslice)
+        else:
+            tmp_hfac = tmp_hfac.isel(Y=yslice)
+
+        tmp_hfac = tmp_hfac.isel(Z=zslice)
+
+        if squeeze_hfacs:
+            return tmp_hfac.squeeze().data
+        else:
+            return tmp_hfac.data
+
     try:
-        dx = rdmds(run_dir + 'DXG*')[0, :]
-        dy = rdmds(run_dir + 'DYG*')[:, 0]
+        # MDS approach
+        dx = rdmds(run_dir + 'DXG*')[0, xslice]
+        dy = rdmds(run_dir + 'DYG*')[yslice, 0]
         dz = rdmds(run_dir + 'DRF*')[:, 0]
         added_attrs = dict(depth=rdmds(run_dir + 'Depth*').squeeze())
 
         if hFacs:
-            for k in ['S', 'W', 'C']:
-                tmp = rdmds(run_dir + 'hFac' + k)
-                added_attrs['hFac' + k] = tmp.squeeze() if squeeze_hfacs else tmp
+            for k in 'SWC':
+                tmp_hfac = rdmds(run_dir + 'hFac' + k)
+                if squeeze_hfacs:
+                    tmp_hfac = tmp_hfac.squeeze()
+                added_attrs['hFac' + k] = tmp_hfac
 
         g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
     except IOError:
+        # NetCDF approach
+        xp1_slice = shift_slice(xslice, stop=1)
+        yp1_slice = shift_slice(yslice, stop=1)
+
         # Needs work on tile number
         g = open_dataset(run_dir + '/grid.t001.nc')
+
         dx, dy, dz = [g[dim].data for dim in ['dxF', 'dyF', 'drF']]
-        dx, dy = dx[0, :], dy[:, 0]
-        g = Grid(dx, dy, dz, x0=x0, y0=y0)
+        dx, dy = dx[0, xslice], dy[:, 0]
+        depth = -g.R_low.isel(X=xslice, Y=yslice).squeeze().data
+        added_attrs = dict(depth=depth)
+        if hFacs:
+            added_attrs['hFacW'] = hfac_mnc('W', x=xp1_slice, z=zslice)
+            added_attrs['hFacS'] = hfac_mnc('S', y=yp1_slice, z=zslice)
+            added_attrs['hFacC'] = hfac_mnc('C', z=zslice)
+        g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
 
     return g
 
