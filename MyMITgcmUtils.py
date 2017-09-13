@@ -108,7 +108,7 @@ def dx_to_xg(dx):
 
 
 def create_size_header(code_dir, n):
-    """Create SIZE.h in ../code/ directory
+    """Create SIZE.h in code directory
 
     Inputs
     ------
@@ -149,6 +149,95 @@ def create_size_header(code_dir, n):
 
     # Remove temporary middle file
     os.remove(code_dir + 'SIZE_middle.h')
+
+
+def create_data_diagnostics(input_dir, code_dir, *diags, num_diag_scale=2):
+    """Create data.diagnostics file and DIAGNOSTICS_SIZE.h
+
+    Although this file is straightforward, it's easy to forget to change
+    details and induce errors, so we want to write it with minimal boiler-
+    plate code
+
+    Inputs
+    ------
+    input_dir: str
+        Input directory in which to save `data.diagnostics`
+    code_dir: str
+        Code directory in which to save `DIAGNOSTICS_SIZE.h`
+    diags: tuple
+        | First element: list of fields
+        | Second element: frequency (+ve for time-average, -ve for snapshot)
+        | Third element: filename
+        | Fourth element: dimensions. 2 if no z dependence else 3
+        | Fourth element: time-phase
+    num_diag_scale: int or real number
+        Factor by which to increase num_diags in DIAGNOSTICS_SIZE.h
+        Allows for some lineancy for run-time changes
+        Trade-off is increased memory usage, but not a big problem for
+        my purposes
+
+
+    Add as many diags as desired as comma-separated tuples
+
+    Example
+    -------
+    (['Ebt', 'Ebc', 'uPbt', 'uEbt', 'uPbc', 'uEbc', 'Conv'], 44640,
+     'energyDiags', 2, 0)
+    """
+
+    # Keep running total of number of diagnostics for DIAGNOSTICS_SIZE.h
+    num_3d_diags = 0
+    num_2d_diags = 0
+
+    if not code_dir.endswith('/'):
+        code_dir += '/'
+
+    with open(input + 'data.diagnostics', 'wt') as f:
+        f.write(' &diagnostics_list\n')
+
+        for i, diag in enumerate(diags, start=1):
+            flds, freq, fname, dims, time_phase = diag
+
+            # Ensure flds is list
+            if type(flds) is str:
+                flds = [flds]
+            diag_slice = '1' if len(flds) == 1 else '1:' + str(len(flds))
+            flds_str = (''.join(['fields(', diag_slice, ',', str(i), ")='"]) +
+                        "','".join(flds) + "'")
+            freq_str = ''.join(['frequency(', str(i), ')=', str(freq), ','])
+            phase_str = ''.join(['timephase(', str(i),')=', str(time_phase)])
+            fname_str = ''.join(['filename(', str(i), ")='", fname, "'"])
+            f.write('#\n')
+            f.write(flds_str + '\n')
+            f.write(freq_str + '\n')
+            f.write(phase_str + '\n')
+            f.write(fname_str + '\n')
+
+            if dims == 3:
+                num_3d_diags += len(flds)
+            if dims == 2:
+                num_2d_diags += len(flds)
+
+        # Not sure if statis part is needed, but no harm adding it
+        end_str = '/\n\n&diag_statis_parms\n/'
+        f.write(end_str)
+
+    num_3d_diags = int(num_diag_scale*num_3d_diags)
+    num_2d_diags = int(num_diag_scale*num_2d_diags)
+    num_diags_str = str(num_3d_diags) + '*Nr + ' + str(num_2d_diags)
+
+    # Create DIAGNOSTICS_SIZE.h in code directory
+    diag_start_end_dir = '/home/hugke729/mitgcm/other/'
+    start_file = diag_start_end_dir + 'DIAGNOSTICS_SIZE_start.h'
+    end_file = diag_start_end_dir + 'DIAGNOSTICS_SIZE_end.h'
+    with open(code_dir + 'DIAGNOSTICS_SIZE.h', 'w') as f:
+        with open(start_file, 'r') as start:
+            f.write(start.read())
+
+        f.write('      PARAMETER( numDiags = ' + num_diags_str + ')')
+        f.write('\n')
+        with open(end_file, 'r') as end:
+            f.write(end.read())
 
 
 def get_run_settings(output_file):
