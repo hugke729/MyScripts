@@ -6,8 +6,10 @@ import os
 import sys
 from subprocess import check_output
 from xarray import open_dataset
+from xarray.ufuncs import fabs
 from scipy import ndimage as nd
 from scipy.interpolate import RegularGridInterpolator as rgi
+from mpl_toolkits.mplot3d import Axes3D
 from MITgcmutils import rdmds
 from MyGrids import Grid
 from MyInterp import nan_gaussian_filter
@@ -192,7 +194,7 @@ def create_data_diagnostics(input_dir, code_dir, *diags, num_diag_scale=2):
     if not code_dir.endswith('/'):
         code_dir += '/'
 
-    with open(input + 'data.diagnostics', 'wt') as f:
+    with open(input_dir + 'data.diagnostics', 'wt') as f:
         f.write(' &diagnostics_list\n')
 
         for i, diag in enumerate(diags, start=1):
@@ -308,14 +310,17 @@ def get_run_settings(output_file):
     return D
 
 
-def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True,
-             xslice=np.s_[0:], yslice=np.s_[0:], zslice=np.s_[0:]):
+def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
+             squeeze_hfacs=True, xslice=np.s_[0:], yslice=np.s_[0:],
+             zslice=np.s_[0:]):
     """Create a Grid object from model's output grid files
 
     Inputs
     ------
     run_dir: str
-        Full path to model's run directory
+        Full path to model's run directory without trailing slash
+    grid_filename: str (optional)
+        Name of grid file if it is not grid.t001.nc or grid.nc
     x0, y0: floats
         Distances from origin
     hfacs: bool
@@ -368,8 +373,19 @@ def get_grid(run_dir, x0=0, y0=0, hFacs=True, squeeze_hfacs=True,
         xp1_slice = shift_slice(xslice, stop=1)
         yp1_slice = shift_slice(yslice, stop=1)
 
-        # Needs work on tile number
-        g = open_dataset(run_dir + '/grid.t001.nc')
+        if grid_filename is not None:
+            pass
+        elif os.path.exists(run_dir + '/grid.t001.nc'):
+            grid_filename = '/grid.t001.nc'
+        elif os.path.exists(run_dir + '/grid.nc'):
+            grid_filename = '/grid.nc'
+        else:
+            err_msg = ('\nGrid file appears to not exist. Tried:\n'
+                       'grid.t001.nc\n'
+                       'grid.nc\n'
+                       'and grid_filename if given as argument')
+            raise OSError(err_msg)
+        g = open_dataset(run_dir + '/' + grid_filename)
 
         dx, dy, dz = [g[dim].data for dim in ['dxF', 'dyF', 'drF']]
         dx, dy = dx[0, xslice], dy[:, 0]
@@ -595,11 +611,14 @@ def open_simulation(filename, **kwargs):
     2) Rename Z coordinate. MITgcm outputs awful things like Zld000030 instead
     of simply Z.
     """
-    std_ext = '.0000000000.t001.nc'
-    if filename.find(std_ext) == -1:
-        filename += std_ext
+    try:
+        ds = open_dataset(filename, **kwargs).squeeze()
+    except OSError:
+        std_ext = '.0000000000.t001.nc'
+        if filename.find(std_ext) == -1:
+            filename += std_ext
 
-    ds = open_dataset(filename, **kwargs).squeeze()
+        ds = open_dataset(filename, **kwargs).squeeze()
 
     pattern = re.compile('Z[a-z]{2}[0-9]{6}')
     for k in ds.dims:
@@ -607,3 +626,47 @@ def open_simulation(filename, **kwargs):
             ds.rename({k: 'Z'}, inplace=True)
 
     return ds
+
+
+def plot_3d_isosurface(X, Y, Z, Q, level, is_ordered=False, fig=None,
+                       **kwargs):
+    """Plot a the surface of a given level value of Q
+
+    Assumes Q approximately decreases/increases monotonically with depth
+
+    Inputs
+    ------
+    X, Y, Z: 1D or 3D arrays
+        The grid associated with Q
+    Q: 3D array
+        The quantity from which to find the isosurface
+    level: float
+        The value of the isosurface
+    is_ordered: bool
+        Set to true if Q(X, Y, Z) not Q(Z, Y, X), which is MITgcm default
+    fig: figure instance
+        If no figure instance is passed in, a new one is created
+    kwargs: dict
+        Values to pass to ?
+
+    Output
+    ------
+    fig: figure instance
+    surf: contour surface artist
+    """
+    fig = plt.figure() if fig is None else fig
+    ax = fig.gca(projection='3d')
+
+    Z_inds = np.argmin(fabs(Q - level), axis=0)
+    Z_surface = Z.data[[Z_inds]].squeeze()
+    print(Z_surface.shape)
+
+    if X.ndim == 1 and Y.ndim == 1:
+        X, Y = np.meshgrid(X, Y)
+
+    # Quick hack to avoid edge effects
+    inds = np.s_[5:-5, 5:-5]
+    ax.plot_surface(X[inds], Y[inds], Z_surface[inds])
+
+    return Z_inds
+
