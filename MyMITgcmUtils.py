@@ -31,8 +31,10 @@ def write_for_mitgcm(filename_in, array_in, prec=64):
 
     Notes
     -----
-    * Need to confirm whether time is before x or after z
     * Output is big endian
+    * When writing amplitude/phase files for OBCS, the input array needs
+    to be Ny x num constituents or Nx x num constituents. Note lack of
+    Nz
     """
 
     if prec == 32:
