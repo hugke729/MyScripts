@@ -1,5 +1,4 @@
 import re
-from warnings import filterwarnings
 import numpy as np
 import numpy.ma as ma
 import os
@@ -9,7 +8,6 @@ from xarray import open_dataset
 from xarray.ufuncs import fabs
 from scipy import ndimage as nd
 from scipy.interpolate import RegularGridInterpolator as rgi
-from mpl_toolkits.mplot3d import Axes3D
 from MITgcmutils import rdmds
 from MyGrids import Grid
 from MyInterp import nan_gaussian_filter
