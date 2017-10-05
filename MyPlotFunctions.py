@@ -1,10 +1,11 @@
+from warnings import filterwarnings
 from matplotlib.lines import Line2D
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import patheffects
 import numpy as np
 from MyNumpyTools import minmax
-from MyFunctions import flatten2Dlist
+from MyFunctions import flatten2Dlist, get_contour
 
 
 def rm_x_axis(ax=None):
@@ -315,3 +316,39 @@ def draw_rect(x0, x1, y0, y1, ax=None, c='k', **plot_kwargs):
     line = ax.plot((x0, x1, x1, x0, x0), (y0, y0, y1, y1, y0),
                    c=c, **plot_kwargs)[0]
     return line
+
+
+def plot_exaggerated_contours(ax, x, y, Z, levels, scale, zorder=1,
+                              show_mean=False):
+    """Standard contour plot, but the perturbations are exaggerated
+
+    Inputs
+    ------
+    ax: axis object
+        Axis on which to draw the contours
+    x, y: 1D arrays
+        As would be passed to plt.contour
+    Z: 2D array
+        Quantity to contour. As would be passed to plt.contour
+    levels: list or array
+        As would be passed to plt.contour
+    scale: int or float
+        Amount by which to increase perturbations
+    zorder: int
+        Passed to plt.line
+    show_mean: bool
+        If true, add grey lines to show mean value about which perturbations
+        are calculated
+
+    Notes
+    -----
+    Have yet to implement code to not plot places where lines shouldn't be
+    plotted
+    """
+    filterwarnings('ignore', 'Mean of empty slice')
+    cons = get_contour(x, y, Z, levels=levels)
+    scale = 8
+    for line in cons.T:
+        line = scale*(line - np.nanmean(line)) + np.nanmean(line)
+        ax.axhline(np.nanmean(line), c='grey', lw=0.5)
+        ax.plot(x, line, c='k', zorder=zorder)
