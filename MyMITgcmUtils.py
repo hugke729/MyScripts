@@ -380,7 +380,10 @@ def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
         elif os.path.exists(run_dir + '/grid.nc'):
             grid_filename = '/grid.nc'
         else:
-            err_msg = ('\nGrid file appears to not exist. Tried:\n'
+            err_msg = ('\nGrid file appears to not exist.\n'
+                       'Are you using arguments correctly: '
+                       'run_dir, grid_filename\n'
+                       'Tried:\n'
                        'grid.t001.nc\n'
                        'grid.nc\n'
                        'and grid_filename if given as argument')
