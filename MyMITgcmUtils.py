@@ -613,6 +613,7 @@ def open_simulation(filename, **kwargs):
     1) Squeeze
     2) Rename Z coordinate. MITgcm outputs awful things like Zld000030 instead
     of simply Z.
+    3) Give physical coords to Z if an appropriate grid file exists
     """
     try:
         ds = open_dataset(filename, **kwargs).squeeze()
@@ -627,6 +628,9 @@ def open_simulation(filename, **kwargs):
     for k in ds.dims:
         if pattern.match(k) is not None:
             ds.rename({k: 'Z'}, inplace=True)
+
+    g = get_grid(os.path.dirname(filename))
+    ds = ds.assign_coords(Z=g.zc)
 
     return ds
 
