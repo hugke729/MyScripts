@@ -390,11 +390,14 @@ def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
             raise OSError(err_msg)
         g = open_dataset(run_dir + '/' + grid_filename)
 
+        g = g.isel(X=xslice, Y=yslice, Z=zslice)
+
         dx, dy, dz = [g[dim].data for dim in ['dxF', 'dyF', 'drF']]
         dx, dy = dx[0, xslice], dy[:, 0]
         depth = -g.R_low.isel(X=xslice, Y=yslice).squeeze().data
         added_attrs = dict(depth=depth)
         if hFacs:
+            # I think this needs work
             added_attrs['hFacW'] = hfac_mnc('W', x=xp1_slice, z=zslice)
             added_attrs['hFacS'] = hfac_mnc('S', y=yp1_slice, z=zslice)
             added_attrs['hFacC'] = hfac_mnc('C', z=zslice)
@@ -604,7 +607,7 @@ def rho_to_T(rho, tAlpha=2e-4, T_0=14.9, rho_0=1026):
     return T_0 - (rho - rho_0)/(tAlpha*rho_0)
 
 
-def open_simulation(filename, **kwargs):
+def open_simulation(filename, grid_filename=None, **kwargs):
     """Wrapper around xarray.open_dataset to do simple clean up things
 
     Clean ups
@@ -614,6 +617,15 @@ def open_simulation(filename, **kwargs):
     2) Rename Z coordinate. MITgcm outputs awful things like Zld000030 instead
     of simply Z.
     3) Give physical coords to Z if an appropriate grid file exists
+
+    Inputs
+    ------
+    filename: str
+        Full path to MITgcm output file
+    grid_filename: str (optional)
+        Name of associated grid file (needed to get z coordinate correct)
+    kwargs: dict
+        Arguments to pass to xarray.open_dataset
     """
     try:
         ds = open_dataset(filename, **kwargs).squeeze()
@@ -629,8 +641,17 @@ def open_simulation(filename, **kwargs):
         if pattern.match(k) is not None:
             ds.rename({k: 'Z'}, inplace=True)
 
-    g = get_grid(os.path.dirname(filename))
-    ds = ds.assign_coords(Z=g.zc)
+    # Try default grid_filename, input grid_filename, and if neither exist,
+    # give up
+    try:
+        g = get_grid(os.path.dirname(filename))
+        ds = ds.assign_coords(Z=g.zc)
+    except OSError:
+        try:
+            g = get_grid(os.path.dirname(filename), grid_filename)
+            ds = ds.assign_coords(Z=g.zc)
+        except OSError:
+            pass
 
     return ds
 
