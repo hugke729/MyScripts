@@ -318,7 +318,7 @@ def draw_rect(x0, x1, y0, y1, ax=None, c='k', **plot_kwargs):
     return line
 
 
-def plot_exaggerated_contours(ax, x, y, Z, levels, scale, zorder=1,
+def plot_exaggerated_contours(ax, x, y, Z, levels, scale=8, zorder=1,
                               show_mean=False):
     """Standard contour plot, but the perturbations are exaggerated
 
@@ -347,7 +347,6 @@ def plot_exaggerated_contours(ax, x, y, Z, levels, scale, zorder=1,
     """
     filterwarnings('ignore', 'Mean of empty slice')
     cons = get_contour(x, y, Z, levels=levels)
-    scale = 8
     for line in cons.T:
         line = scale*(line - np.nanmean(line)) + np.nanmean(line)
         ax.axhline(np.nanmean(line), c='grey', lw=0.5)
