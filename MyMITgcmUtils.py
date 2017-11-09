@@ -406,6 +406,45 @@ def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
     return g
 
 
+def get_xgrid(run_dir, grid_filename, x0=0, y0=0, xslice=np.s_[0:],
+              yslice=np.s_[0:], zslice=np.s_[0:]):
+    """Read a netcdf grid file and include a few extra useful attributes
+
+    Inputs
+    ------
+    run_dir: str
+        Full path to model's run directory without trailing slash
+    grid_filename: str (optional)
+        Name of grid file if it is not grid.t001.nc or grid.nc
+    x0, y0: floats
+        Distances from origin
+    xslice, yslice, zslice: slice objects
+        Allow reading of part of grid
+    """
+    g = open_dataset(run_dir + grid_filename)
+
+    xp1_slice = shift_slice(xslice, stop=1)
+    yp1_slice = shift_slice(yslice, stop=1)
+
+    g = g.isel(X=xslice, Y=yslice, Z=zslice, Xp1=xp1_slice, Yp1=yp1_slice)
+
+    # Simplify a few naming conventions
+    g['dx'], g['dy'], g['dz'] = g.dxC, g.dyC, g.drF
+    g['xc'], g['yc'], g['zc'] = g.X, g.Y, g.Z
+    g['xf'], g['yf'], g['zf'] = g.Xp1, g.Yp1, g.Zp1
+    g['Xf'], g['Yf'] = g.XG, g.YG
+    g['Xc'], g['Yc'] = g.XC, g.YC
+    g['Nx'], g['Ny'], g['Nz'] = g.xc.size, g.yc.size, g.zc.size
+    g['depth'] = g.Depth
+
+    # Add convenience attributes
+    g['xc_km'], g['yc_km'] = g.xc/1e3, g.yc/1e3
+    g['xf_km'], g['yf_km'] = g.xf/1e3, g.yf/1e3
+    g['Xf_km'], g['Yf_km'] = g.XG/1e3, g.YG/1e3
+    g['Xc_km'], g['Yc_km'] = g.XC/1e3, g.YC/1e3
+    return g
+
+
 def mask_mitgcm_output(output):
     """Return a masked array copy of output with only values in water
 
@@ -696,4 +735,3 @@ def plot_3d_isosurface(X, Y, Z, Q, level, is_ordered=False, fig=None,
     ax.plot_surface(X[inds], Y[inds], Z_surface[inds])
 
     return Z_inds
-
