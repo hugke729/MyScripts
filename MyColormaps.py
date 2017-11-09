@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib as mpl
 import colorsys
+from colorsys import rgb_to_hls, hls_to_rgb
 from fractions import Fraction
 import itertools
 
@@ -209,7 +210,17 @@ def red_yellow_grey_cyan_blue(N=256, reverse=False):
     return red_yellow_white_cyan_blue(N, reverse=reverse, white_to_grey=True)
 
 
-def cmap_cold(reverse=False):
+def purple_grey_green(N=256, reverse=False):
+    cols = ['#46005f', '#ba00ff', '#ff64d0', '#f0b3cb', '#ececec',
+            '#aee28f', '#0bb337', '#004d0d', '#001e0f']
+
+    if reverse:
+        cols = cols[::-1]
+
+    return LinearSegmentedColormap.from_list('custom', cols, N)
+
+
+def cmap_cold(reverse=False, green=False):
     C = np.array(
         [[0.9857, 0.9857, 0.9857],
          [0.9714, 0.9714, 0.9714],
@@ -270,6 +281,15 @@ def cmap_cold(reverse=False):
          [0.01050, 0.0225, 0.3009],
          [0.00520, 0.0112, 0.2818],
          [0.00000, 0.0000, 0.2627]])
+
+    if green:
+       hls = np.r_[[rgb_to_hls(*row) for row in C]]
+       h_green = 100/255
+       h_blue = 136/255
+       h_tmp = hls[:, 0].copy()
+       h_tmp[h_tmp != 0] += h_green - h_blue
+       hls[:, 0] = h_tmp
+       C = np.r_[[hls_to_rgb(*row) for row in hls]]
 
     if reverse:
         C = np.flipud(C)
