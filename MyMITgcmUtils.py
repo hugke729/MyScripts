@@ -389,12 +389,12 @@ def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
                        'and grid_filename if given as argument')
             raise OSError(err_msg)
         g = open_dataset(run_dir + '/' + grid_filename)
+        depth = -g.R_low.isel(X=xslice, Y=yslice).squeeze().data
 
         g = g.isel(X=xslice, Y=yslice, Z=zslice)
 
         dx, dy, dz = [g[dim].data for dim in ['dxF', 'dyF', 'drF']]
         dx, dy = dx[0, xslice], dy[:, 0]
-        depth = -g.R_low.isel(X=xslice, Y=yslice).squeeze().data
         added_attrs = dict(depth=depth)
         if hFacs:
             # I think this needs work
@@ -612,11 +612,10 @@ def open_simulation(filename, grid_filename=None, **kwargs):
 
     Clean ups
     ---------
-    0) Guess file extension
-    1) Squeeze
-    2) Rename Z coordinate. MITgcm outputs awful things like Zld000030 instead
-    of simply Z.
-    3) Give physical coords to Z if an appropriate grid file exists
+    1. Guess file extension
+    2. Squeeze
+    3. Rename Z coordinate to Z instead of things like Zld000030
+    4. Give physical coords to Z if an appropriate grid file exists
 
     Inputs
     ------
