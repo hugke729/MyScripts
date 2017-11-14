@@ -6,6 +6,7 @@ import warnings
 from MyNumpyTools import nan_or_masked
 from matplotlib._cntr import Cntr
 from scipy.interpolate import interp1d
+from scipy.optimize import curve_fit
 
 
 def divisorGenerator(n):
@@ -263,3 +264,29 @@ def get_contour(x, y, Z, levels, fill_value=np.nan):
         out[:, i] = f(x)
 
     return out.squeeze()
+
+
+def fit_gaussian(x, y, init_params, print_result=False):
+    """Fit gaussian curve
+
+    Inputs
+    ------
+    x, y: arrays
+    init_params: initial guess for amplitude, mean and std dev
+
+    Output
+    ------
+    amplitude, mean, standard deviation
+    """
+    def gauss(x, *p):
+        A, mu, sigma = p
+        return A*np.exp(-(x-mu)**2/(2.*sigma**2))
+
+    fit = curve_fit(gauss, x, y, init_params)[0]
+
+    if print_result:
+        print('Amplitude: ' + str(fit[0]))
+        print('Mean: ' + str(fit[1]))
+        print('Std Dev: ' + str(fit[2]))
+
+    return fit
