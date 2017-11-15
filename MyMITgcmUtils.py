@@ -735,3 +735,31 @@ def plot_3d_isosurface(X, Y, Z, Q, level, is_ordered=False, fig=None,
     ax.plot_surface(X[inds], Y[inds], Z_surface[inds])
 
     return Z_inds
+
+
+def calc_bc_velocities(ds, g):
+    """Baroclinic velocities from UE_VEL_C and VN_VEL_C
+
+    Inputs
+    ------
+    ds: dataset
+        Output from open_simulation
+    g: grid object
+        Output from get_xgrid
+    """
+    hfac = ds.UE_VEL_C.isel(T=-1).copy()
+    hfac.data = g.HFacC.data.squeeze()
+
+    dz = ds.Z.copy()
+    dz.data = g.dz
+
+    depth = ds.isel(Z=0).UE_VEL_C.isel(T=-1).copy()
+    depth.data = g.depth.data.squeeze()
+
+    Ubt = (ds.UE_VEL_C*hfac*dz).sum('Z')/depth
+    ds['Ubc'] = (ds.UE_VEL_C - Ubt).where(hfac > 0)
+
+    Vbt = (ds.VN_VEL_C*hfac*dz).sum('Z')/depth
+    ds['Vbc'] = (ds.VN_VEL_C - Vbt).where(hfac > 0)
+    return ds
+
