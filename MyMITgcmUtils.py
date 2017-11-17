@@ -747,14 +747,18 @@ def calc_bc_velocities(ds, g):
     g: grid object
         Output from get_xgrid
     """
-    hfac = ds.UE_VEL_C.isel(T=-1).copy()
+    try:
+        hfac = ds.UE_VEL_C.isel(T=-1).copy()
+        depth = ds.isel(Z=0).UE_VEL_C.isel(T=-1).copy()
+    except ValueError:
+        hfac = ds.UE_VEL_C.copy()
+        depth = ds.isel(Z=0).UE_VEL_C.copy()
+
     hfac.data = g.HFacC.data.squeeze()
+    depth.data = g.depth.data.squeeze()
 
     dz = ds.Z.copy()
     dz.data = g.dz
-
-    depth = ds.isel(Z=0).UE_VEL_C.isel(T=-1).copy()
-    depth.data = g.depth.data.squeeze()
 
     Ubt = (ds.UE_VEL_C*hfac*dz).sum('Z')/depth
     ds['Ubc'] = (ds.UE_VEL_C - Ubt).where(hfac > 0)
@@ -762,4 +766,3 @@ def calc_bc_velocities(ds, g):
     Vbt = (ds.VN_VEL_C*hfac*dz).sum('Z')/depth
     ds['Vbc'] = (ds.VN_VEL_C - Vbt).where(hfac > 0)
     return ds
-
