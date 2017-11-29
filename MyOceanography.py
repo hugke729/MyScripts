@@ -1,3 +1,4 @@
+from scipy.integrate import simps
 from scipy.optimize import fsolve
 from seawater.eos80 import dens0, salt
 from seawater.constants import c3515
@@ -5,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pandas import read_csv
 from MyNumpyTools import rms
+from MyGrids import estimate_cell_edges
 
 
 def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
@@ -136,3 +138,50 @@ def gk96_xi(S, T, print_both_xi=False):
         print('ξ_T: {0:2.2g}'.format(xi_T))
 
     return np.max(np.r_[xi_S, xi_T])
+
+
+def calc_mode_coeffs(signal, z, sines=True, nmax=5, normed=True):
+    """Assuming constant stratification, determine contribution of modes.
+
+    Inputs
+    ------
+    signal: array-like
+        Anomaly about zero: rho', T', u' etc
+    z: array-like
+        Depth vector same shape as signal
+    sines: bool
+        If true, basis functions are sines (e.g., rho').
+        If False, then cosines (e.g., u')
+    nmax: int
+        Total number of modes to use
+    normed: bool
+        If true, return coefficients whose absolute values sum to 1
+
+    Returns
+    -------
+    coeffs: array-like
+        nmax + 1 values of coefficients where first value is 0th mode
+    recreated_signal: array-like
+        The input signal created from nmax basis functions
+    """
+    signal, z = [np.asarray(arr) for arr in [signal, z]]
+    zf = estimate_cell_edges(z)
+
+    fn = np.sin if sines else np.cos
+
+    # Remove depth-mean from signal
+    # signal -= signal.mean()
+
+    recreated_signal = np.zeros_like(signal)
+    coeffs = np.zeros(nmax)
+    for n in np.r_[1:nmax + 1]:
+        vec_n = fn(n*np.pi*z/np.ptp(zf))
+        coeffs[n-1] = simps(vec_n*signal)/np.ptp(zf)*2
+
+        recreated_signal += coeffs[n-1]*vec_n
+
+    if normed:
+        coeffs /= np.abs(coeffs).sum()
+
+    return coeffs, recreated_signal
+
