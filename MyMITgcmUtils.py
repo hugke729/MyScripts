@@ -655,6 +655,7 @@ def open_simulation(filename, grid_filename=None, **kwargs):
     2. Squeeze
     3. Rename Z coordinate to Z instead of things like Zld000030
     4. Give physical coords to Z if an appropriate grid file exists
+    5. Invert repr because I want useful information at bottom of screen
 
     Inputs
     ------
@@ -690,6 +691,24 @@ def open_simulation(filename, grid_filename=None, **kwargs):
             ds = ds.assign_coords(Z=g.zc)
         except OSError:
             pass
+
+    # Hack to change __repr__ method
+    # https://www.reddit.com/r/learnpython/comments/6rmaxp/
+    # overriding_repr_on_an_instance/
+    curr_repr = ds.__repr__()
+    new_repr = ''
+    for i in ['Attributes:', 'Coordinates:', 'Data variables:', 'Dimensions:']:
+        new_repr += '\n\n' + i
+        new_repr += re.split('\n\w', curr_repr.split(i)[-1])[0]
+
+    class gcmDataset(Dataset):
+        def __init__(self, old_thing):
+            self.__dict__ = old_thing.__dict__
+
+        def __repr__(self):
+            return new_repr
+
+    ds = gcmDataset(ds)
 
     return ds
 
