@@ -3,7 +3,9 @@ import re
 import pickle
 import numpy as np
 import numpy.ma as ma
+import os
 from IPython import get_ipython
+from jupyter_client.blocking import BlockingKernelClient
 
 
 def filedrive():
@@ -91,9 +93,19 @@ def preall(array_shape, copies=1, initial_value=0, mask=False):
     return array_tuple[0] if copies == 1 else array_tuple
 
 
-
 def merge_dicts(x, y):
     """Given two dicts, merge them into a new dict as a shallow copy."""
     z = x.copy()
     z.update(y)
     return z
+
+
+def run_in_existing_kernel(cmd):
+    kernel_dir = '/run/user/1000/jupyter/'
+    connection_file = os.listdir(kernel_dir)[0]
+    connection_file = kernel_dir + connection_file
+    kc = BlockingKernelClient(connection_file=connection_file)
+    kc.load_connection_file()
+    kc.start_channels()
+
+    kc.execute(cmd)
