@@ -429,9 +429,10 @@ def get_xgrid(run_dir, grid_filename, x0=0, y0=0, xslice=np.s_[0:],
     g = g.isel(X=xslice, Y=yslice, Z=zslice, Xp1=xp1_slice, Yp1=yp1_slice)
 
     # Simplify a few naming conventions
-    g['dx'], g['dy'], g['dz'] = g.dxC, g.dyC, g.drF
     g['xc'], g['yc'], g['zc'] = g.X, g.Y, g.Z
     g['xf'], g['yf'], g['zf'] = g.Xp1, g.Yp1, g.Zp1
+    g['dx'], g['dy'] = g.dxF.isel(Y=0, drop=True), g.dyF.isel(X=0, drop=True)
+    g['dz'] = g.drF
     g['Xf'], g['Yf'] = g.XG, g.YG
     g['Xc'], g['Yc'] = g.XC, g.YC
     g['Nx'], g['Ny'], g['Nz'] = g.xc.size, g.yc.size, g.zc.size
@@ -440,6 +441,7 @@ def get_xgrid(run_dir, grid_filename, x0=0, y0=0, xslice=np.s_[0:],
     # Add convenience attributes
     g['xc_km'], g['yc_km'] = g.xc/1e3, g.yc/1e3
     g['xf_km'], g['yf_km'] = g.xf/1e3, g.yf/1e3
+    g['dx_km'], g['dy_km'] = g.dx/1e3, g.dy/1e3
     g['Xf_km'], g['Yf_km'] = g.XG/1e3, g.YG/1e3
     g['Xc_km'], g['Yc_km'] = g.XC/1e3, g.YC/1e3
     return g
