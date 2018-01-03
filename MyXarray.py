@@ -45,3 +45,8 @@ def xa_masked_equal(data_array, value):
     is_equal = data_array != value
     data_array = data_array.where(is_equal)
     return data_array
+
+
+def xa_ptp(data_array, dim=None):
+    """Like np.ptp, but for xarray datasets"""
+    return data_array.max(dim=dim) - data_array.min(dim=dim)
