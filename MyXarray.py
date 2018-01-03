@@ -38,3 +38,10 @@ def xa_gradient(data_array, dim, dx=None):
         grad_out /= dx
 
     return grad_out
+
+
+def xa_masked_equal(data_array, value):
+    """Like np.ma.masked_equal, but for xarray datasets"""
+    is_equal = data_array != value
+    data_array = data_array.where(is_equal)
+    return data_array
