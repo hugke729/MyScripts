@@ -657,6 +657,7 @@ def open_simulation(filename, grid_filename=None, **kwargs):
     2. Squeeze
     3. Rename Z coordinate to Z instead of things like Zld000030
     4. Give physical coords to Z if an appropriate grid file exists
+    5. Invert Z if step 4 not applicable
 
     Inputs
     ------
@@ -691,7 +692,10 @@ def open_simulation(filename, grid_filename=None, **kwargs):
             g = get_grid(os.path.dirname(filename), grid_filename)
             ds = ds.assign_coords(Z=g.zc)
         except OSError:
-            pass
+            try:
+                ds['Z'] *= -1
+            except KeyError:
+                pass
 
     return ds
 
