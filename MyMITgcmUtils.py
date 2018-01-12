@@ -435,7 +435,7 @@ def get_xgrid(run_dir, grid_filename, x0=0, y0=0, xslice=np.s_[0:],
     g['dz'] = g.drF
     g['Xf'], g['Yf'] = g.XG, g.YG
     g['Xc'], g['Yc'] = g.XC, g.YC
-    g['Nx'], g['Ny'], g['Nz'] = g.xc.size, g.yc.size, g.zc.size
+    g['Nx'], g['Ny'], g['Nz'] = [g[key].data.size for key in 'XYZ']
     g['depth'] = g.Depth
 
     # Add convenience attributes
@@ -686,11 +686,11 @@ def open_simulation(filename, grid_filename=None, **kwargs):
     # give up
     try:
         g = get_grid(os.path.dirname(filename))
-        ds = ds.assign_coords(Z=g.zc)
+        ds = ds.assign_coords(Z=-g.zc)
     except OSError:
         try:
             g = get_grid(os.path.dirname(filename), grid_filename)
-            ds = ds.assign_coords(Z=g.zc)
+            ds = ds.assign_coords(Z=-g.zc)
         except OSError:
             try:
                 ds['Z'] *= -1
