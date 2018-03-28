@@ -282,14 +282,19 @@ def cmap_cold(reverse=False, green=False):
          [0.00520, 0.0112, 0.2818],
          [0.00000, 0.0000, 0.2627]])
 
+    # if green:
+    #    hls = np.r_[[rgb_to_hls(*row) for row in C]]
+    #    h_green = 100/255
+    #    h_blue = 136/255
+    #    h_tmp = hls[:, 0].copy()
+    #    h_tmp[h_tmp != 0] += h_green - h_blue
+    #    hls[:, 0] = h_tmp
+    #    C = np.r_[[hls_to_rgb(*row) for row in hls]]
     if green:
-       hls = np.r_[[rgb_to_hls(*row) for row in C]]
-       h_green = 100/255
-       h_blue = 136/255
-       h_tmp = hls[:, 0].copy()
-       h_tmp[h_tmp != 0] += h_green - h_blue
-       hls[:, 0] = h_tmp
-       C = np.r_[[hls_to_rgb(*row) for row in hls]]
+        C = np.array(
+            ['#004320', '#034d26', '#086031', '#0d703b', '#13874b', '#10a556',
+             '#09ce66', '#03ef72', '#1af983', '#4dec98', '#8cdcb2', '#bfcfc7',
+             '#d7d7d7', '#e6e6e6', '#f4f4f4', '#fbfbfb'])
 
     if reverse:
         C = np.flipud(C)
