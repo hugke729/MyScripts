@@ -24,6 +24,14 @@ def splay_figures():
                        [x1,y1,wx,h],
                        [x2,y1,wx,h],
                        [x3,y1,wx,h]])
+
+    if len(fig_list) == 2:
+        points = points[[2, 5]]
+    if len(fig_list) == 3:
+        points = points[[2, 4, 5]]
+    if len(fig_list) == 4:
+        points = points[[1, 2, 4, 5]]
+
     for i in range(len(fig_list)):
         plt.figure(fig_list[i])
         plt.get_current_fig_manager().window.setGeometry(
@@ -100,7 +108,8 @@ def raster_and_save(fname, rasterize_list=None, fig=None, dpi=None,
     for item in rasterize_list:
 
         # Whether or not plot is a contour plot is important
-        is_contour = isinstance(item, matplotlib.contour.QuadContourSet)
+        is_contour = (isinstance(item, matplotlib.contour.QuadContourSet) or
+                      isinstance(item, matplotlib.tri.TriContourSet))
 
         # Whether or not collection of lines
         # This is commented as we seldom want to rasterize lines
