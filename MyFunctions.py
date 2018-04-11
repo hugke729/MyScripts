@@ -5,6 +5,7 @@ import itertools
 import warnings
 from MyNumpyTools import nan_or_masked
 from matplotlib._cntr import Cntr
+import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
@@ -290,3 +291,15 @@ def fit_gaussian(x, y, init_params, print_result=False):
         print('Std Dev: ' + str(fit[2]))
 
     return fit
+
+
+def calc_power_law(x, y, plot_results=False):
+    x, y = np.log10(x), np.log10(y)
+    p = np.polyfit(x, y, 1)
+    slope = p[0]
+    slope_str = 'Slope = ' + '{0:2.2f}'.format(slope)
+    print(slope_str)
+    if plot_results:
+        plt.plot(x, y, 'ko')
+        plt.plot(x, np.polyval(p, x), 'k')
+        plt.title(slope_str)
