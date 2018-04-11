@@ -1,5 +1,6 @@
 from scipy.integrate import simps
 from scipy.optimize import fsolve
+from scipy.special import eval_legendre
 from seawater.eos80 import dens0, salt
 from seawater.constants import c3515
 import numpy as np
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 from pandas import read_csv
 from MyNumpyTools import rms
 from MyGrids import estimate_cell_edges
+from MyFunctions import calc_power_law
 
 
 def add_sigma_contours(ax, levels=np.arange(20, 30, 0.5), n=100, color='k',
@@ -61,7 +63,7 @@ def intermediate_density_profile(rho, min_drho=1E-3, return_up_down=False):
         return rho_intermediate
 
 
-def read_tide_csv(tide_file):
+def read_tide_csv(tide_file, nrows=630):
     """Read tide height csv file output from tbone.biol.sc.edu/tide
 
     See examples in /home/hugke729/PhD/Data/Shipboard/doc/
@@ -79,7 +81,7 @@ def read_tide_csv(tide_file):
         Composed of date and tidal height
     """
     table = read_csv(
-        tide_file, sep=',', skiprows=5, nrows=630,
+        tide_file, sep=',', skiprows=5, nrows=nrows,
         engine='python', infer_datetime_format=True,
         header=None, names=('Date', 'Height'), parse_dates=['Date'])
 
@@ -185,3 +187,78 @@ def calc_mode_coeffs(signal, z, sines=True, nmax=5, normed=True):
 
     return coeffs, recreated_signal
 
+
+def tidal_diss_supercritical_topo(Uvec, b, h, N):
+    """
+    Evaluated the dissipation predicted by Klymak et al. 2010 for constant N
+
+    Inputs
+    ------
+    Uvec: array or list
+        Deep-water tidal velocities
+    b: float
+        Obstacle height (m)
+    h: float
+        Depth in deep water (m)
+    N: float
+        Constant buoyancy frequency in rad/s
+
+    Returns
+    -------
+    D: array
+        Dissipation (W/m) for each U in Uvec
+    """
+    def eval_nc(U, N, b, h):
+        """Critical mode number. Eq 6 of Klymak et al. (2010)"""
+        d = h-b
+        nc = N*d/(np.pi*U)
+        nc = np.ceil(nc).astype(int)
+        return nc
+
+    def F_LY03(U, N, b, h):
+        """Flux in W/m given in abstract of Llewelyn Smith and Young (2003)"""
+        rho0 = 1000
+        M = eval_M(b, h)
+        F = (np.pi/4)*rho0*b**2*U**2*N*M
+        return F
+
+    def eval_M(b, h):
+        """Interpolate the curve in Figure 4 of Llewelyn Smith and Young (2003)
+
+        This is a quick and dirty alternative to doing it properly"""
+        assert b/h <= 0.9, 'b/h exceeds LY03 Figure 4. Cannot interpolate'
+        xgraph = np.sort(np.r_[0:0.91:0.1, 0.85])
+        ygraph = 1 + 0.01*np.r_[0, 1, 3, 5, 8, 13, 20, 32, 49, 64, 87]
+        M = np.interp(b/h, xgraph, ygraph)
+        return M
+
+    def eval_P_k(k, b, h):
+        B = np.pi*b/h
+        cosB = np.cos(B)
+        P_k = eval_legendre(k-1, cosB) - eval_legendre(k, cosB)
+        return P_k
+
+    def flux_per_mode(F, b, h):
+        ninf = 20  # Approximation of infinity
+        kvec = np.r_[1:ninf]
+        P_vec = np.r_[[eval_P_k(k, b, h) for k in kvec]]
+        denom = np.sum([(1/k)*P_vec[k-1]**2 for k in kvec])
+        F_n = np.r_[[(F/n)*P_vec[n-1]**2/denom for n in kvec]]
+        # Add unused value at beginning to allow correct nc indexing
+        F_n = np.insert(F_n, 0, np.nan)
+        return F_n
+
+    Uvec = np.atleast_1d(Uvec)
+    D = np.zeros_like(Uvec)
+    for i, U in enumerate(Uvec):
+        nc = eval_nc(U, N, b, h)
+        F = F_LY03(U, N, b, h)
+        F_n = flux_per_mode(F, b, h)
+        D[i] = np.sum(F_n[nc:])
+    return D
+
+
+if __name__ == '__main__':
+    U = np.r_[1, 2, 4, 8, 12, 16, 24]/100
+    D = tidal_dissipation_supercritical_topography(U, b=200, h=250, N=6.2E-3)
+    calc_power_law(U, D, True)
