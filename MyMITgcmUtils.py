@@ -429,12 +429,12 @@ def get_xgrid(run_dir, grid_filename, x0=0, y0=0, xslice=np.s_[0:],
     g = g.isel(X=xslice, Y=yslice, Z=zslice, Xp1=xp1_slice, Yp1=yp1_slice)
 
     # Simplify a few naming conventions
-    g['xc'], g['yc'], g['zc'] = g.X, g.Y, g.Z
-    g['xf'], g['yf'], g['zf'] = g.Xp1, g.Yp1, g.Zp1
+    g['xc'], g['yc'], g['zc'] = g.X - x0, g.Y - y0, g.Z
+    g['xf'], g['yf'], g['zf'] = g.Xp1 - x0, g.Yp1 - y0, g.Zp1
     g['dx'], g['dy'] = g.dxF.isel(Y=0, drop=True), g.dyF.isel(X=0, drop=True)
     g['dz'] = g.drF
-    g['Xf'], g['Yf'] = g.XG, g.YG
-    g['Xc'], g['Yc'] = g.XC, g.YC
+    g['Xf'], g['Yf'] = g.XG - x0, g.YG - y0
+    g['Xc'], g['Yc'] = g.XC - x0, g.YC - y0
     g['Nx'], g['Ny'], g['Nz'] = [g[key].data.size for key in 'XYZ']
     g['depth'] = g.Depth
 
@@ -648,13 +648,13 @@ def rho_to_T(rho, tAlpha=2e-4, T_0=14.9, rho_0=1026):
     return T_0 - (rho - rho_0)/(tAlpha*rho_0)
 
 
-def open_simulation(filename, grid_filename=None, **kwargs):
+def open_simulation(filename, squeeze=True, grid_filename=None, **kwargs):
     """Wrapper around xarray.open_dataset to do simple clean up things
 
     Clean ups
     ---------
     1. Guess file extension
-    2. Squeeze
+    2. Squeeze by default
     3. Rename Z coordinate to Z instead of things like Zld000030
     4. Give physical coords to Z if an appropriate grid file exists
     5. Invert Z if step 4 not applicable
@@ -669,13 +669,16 @@ def open_simulation(filename, grid_filename=None, **kwargs):
         Arguments to pass to xarray.open_dataset
     """
     try:
-        ds = open_dataset(filename, **kwargs).squeeze()
+        ds = open_dataset(filename, **kwargs)
     except OSError:
         std_ext = '.0000000000.t001.nc'
         if filename.find(std_ext) == -1:
             filename += std_ext
 
-        ds = open_dataset(filename, **kwargs).squeeze()
+        ds = open_dataset(filename, **kwargs)
+
+    if squeeze:
+        ds = ds.squeeze()
 
     pattern = re.compile('Z[a-z]{2}[0-9]{6}')
     for k in ds.dims:
