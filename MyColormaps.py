@@ -203,6 +203,8 @@ def red_yellow_white_cyan_blue(N=256, reverse=True, white_to_grey=False):
         '#5f0000']
     if white_to_grey:
         cols[3:6] = ['#9ee6e6', '#ececec', '#eaea99']
+    if reverse:
+        cols = cols[::-1]
     return LinearSegmentedColormap.from_list('custom', cols, N)
 
 
