@@ -25,7 +25,7 @@ from MyFilters import butter_highpass_filter as bhf
 from MyInterp import interp_weights, interpolate
 from MyGrids import estimate_cell_edges
 from MyNumpyTools import (nan_or_masked, nan_or_masked_to_value, logical_all,
-                          minmax)
+                          minmax, arange_like, normalize)
 from MyOceanography import intermediate_density_profile
 from vertmodes import vertModes
 
@@ -41,7 +41,7 @@ from vertmodes import vertModes
 #   |  |- calc_density
 #   |  |- calc_N2
 #   |  |- potential_temp
-#   |  |- calc_eps
+#   |  |- calc_eps (removed eps references (11 Dec 2017)
 #   |  |   |- calc_Lt
 #   |  |- calc_eps_avg
 #   |  |- calc_modes
@@ -118,9 +118,9 @@ def loadMVP_m1(cast_no, z_bins=None, bin_data=True, lagT=True,
     # early on, just to be safe, since the functions after that include
     # smoothing procedures, which would ruin diss calculation
     data['prho'], data['rho'] = calc_density(*get('S', 'T', 'p')(data))
-    data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z')(data))
-    data['eps_zavg'], data['eps_z_integral'] = calc_eps_avg(
-        data['eps'], data['z'], xyt['bottom'])
+    # data['eps'], data['L_T'] = calc_eps(*get('p_raw', 'prho', 'z')(data))
+    # data['eps_zavg'], data['eps_z_integral'] = calc_eps_avg(
+    #     data['eps'], data['z'], xyt['bottom'])
     data['theta'] = potential_temp(*get('S', 'T', 'p')(data))
     data['N2'] = calc_N2(*get('p', 'prho', 'z')(data))
 
@@ -168,9 +168,9 @@ def concatenate_binned_arrays(
     # Preallocate the dictionary to hold concatenated grids with NaNs
     grid_all = {}
     fields = ['p', 'z', 'SV', 'T', 'C', 'S', 'rho', 'prho', 'theta',
-              'ANGL1', 'ANLG2', 'ANLG3', 'N2', 'L_T', 'eps',
+              'ANGL1', 'ANLG2', 'ANLG3', 'N2',
               'hori_0', 'hori_1', 'hori_2', 'vert_0', 'vert_1', 'vert_2']
-    scalar_fields = ['eps_zavg', 'eps_z_integral', 'c0', 'c1', 'c2']
+    scalar_fields = ['c0', 'c1', 'c2']
     xyt_fields = ['bottom', 'cast', 'date', 'lat', 'lon', 'time']
 
     Nx, Nz = end_n - start_n + 1, len(z_bins) - 1
@@ -392,7 +392,7 @@ def select_downcast(pressure, for_overturn_calcs=False):
     return falling_inds
 
 
-def lag_temperature(C, T, p, lag_n = -3.2):
+def lag_temperature(C, T, p, lag_n=-3.2):
     """Lag temperature by a fixed number of samples"""
     # See /home/hugke729/PhD/Python/MVP/obtain_phase_lag.py
     # Lag is negative, so it is actually conductivity lagging, but leave
@@ -485,7 +485,7 @@ def smooth_p_and_z(p, z):
     return p, z
 
 
-def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
+def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False, min_drho=5E-4):
     """Calculate Thorpe scale
 
     Inputs are not allowed NaNs
@@ -496,8 +496,10 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     coherence analysis of temperature and conductivity. It is a reasonable
     comprimise between smoothing overturns and picking up noise
     """
+    prho_raw = prho.copy()
     prho = prho.copy()
     z = z.copy()
+    z_raw = z.copy()
 
     # Doubly ensure z is monotonically increasing and last prho value is max
     dz = central_diff_gradient(z)
@@ -514,10 +516,10 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     # Be extra cautious and calculate intermediate profile following
     # Gargett and Garner (2008)
-    prho = intermediate_density_profile(prho, min_drho=1E-3)
+    prho = intermediate_density_profile(prho, min_drho=min_drho)
 
     # Sort potential density
-    inds = np.argsort(prho)
+    inds = np.argsort(prho, kind='mergesort')
 
     # Find the displacements needed to sort to density profile
     thorpe_disp = z[inds] - z
@@ -542,7 +544,9 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
 
     # Plot where overturns start and end
     if plot_overturns:
-        fig, ax = plt.subplots(ncols=5, sharey=True)
+        fig, ax = plt.subplots(
+            ncols=5, sharey=True,
+            gridspec_kw=dict(width_ratios=(3, 1, 1, 1, 1)))
         ax[0].set_ylim(z.max(), 0)
         ax[1].set(xlabel='Density range\nin overturn (10$^{-3}$ kg/m3)')
         ax[2].set(xlabel='R_o')
@@ -552,6 +556,7 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     for start_i, end_i in zip(overturn_starts, overturn_ends):
         inds_i = np.s_[start_i:end_i]
         inds_ip1 = np.s_[start_i:end_i+1]
+        inds_wide = np.s_[np.max((0, start_i - 10)):end_i+11]
         density_range = np.ptp(prho[inds_i])
         # Approximation of Ro given in Gargett and Garner (2008)
         # Assumes constant profiling speed (good approx over size
@@ -581,16 +586,35 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
         else:
             # If it passes the test, plot enlarged version
             if plot_overturns:
-                normalised_prho = (
-                    prho[inds_ip1] - prho[inds_ip1].min())/density_range
-                enlarged_prho = prho[inds_ip1][-1] + 0.02 + 0.2*normalised_prho
-                ax[0].plot(enlarged_prho, z[inds_ip1], 'k')
+                norm_prho = normalize(prho[inds_ip1])
+                enlarged_prho = prho[inds_ip1][-1] + 0.2*norm_prho
+                ax[0].plot(enlarged_prho + 0.02, z[inds_ip1], 'k')
+
+                # T, C, S = [blf(data[key], 3, 25) for key in 'TCS']
+                # norm_C = normalize(C[inds_wide])
+                # norm_T = normalize(T[inds_wide])
+                # norm_S = normalize(S[inds_wide])
+                # enlarged_C = prho[inds_ip1][-1] + 0.2*norm_C - 0.22
+                # enlarged_S = prho[inds_ip1][-1] + 0.2*norm_S - 0.22
+                # enlarged_T = z[inds_ip1][0] + norm_T*np.ptp(z[inds_ip1])
+                # ax[0].plot(enlarged_C, enlarged_T, 'grey')
+                # ax[0].plot(enlarged_C[10:-10], enlarged_T[10:-10], 'k')
+                # ax[0].plot(enlarged_S, enlarged_T, 'r')
+
+                # rho_std = np.std(np.diff(prho_raw[inds_ip1]))
+                # rho_ptp = np.ptp(prho[inds_ip1])
+                # ratio = rho_ptp/rho_std
+                # res_str = '{0:.1f},  {1:.1f},  {2:.1f}'
+                # res_str = res_str.format(1e3*rho_std, 1e3*rho_ptp, ratio)
+                # xt, yt = prho[inds_ip1].mean() - 0.02, z[inds_ip1].mean()
+                # ax[0].text(xt, yt, res_str, ha='right')
 
     overturn_starts = np.setdiff1d(overturn_starts, starts_to_rm)
     overturn_ends = np.setdiff1d(overturn_ends, ends_to_rm)
 
     if plot_overturns:
         ax[0].plot(np.sort(prho), z, 'g')
+        ax[0].plot(prho_raw, z_raw, 'grey')
         ax[0].plot(prho, z, 'k')
         ax[0].plot(prho[overturn_starts], z[overturn_starts], 'r_')
         ax[0].plot(prho[overturn_ends], z[overturn_ends], 'b_')
@@ -616,10 +640,16 @@ def calc_Lt(prho, z, n_smooth_rho=8, plot_overturns=False):
     return thorpe_scales, N2
 
 
-def calc_eps(p, prho, z, plot_overturns=False, n_smooth_rho=8):
+def calc_eps(p, prho, z, plot_overturns=False, n_smooth_rho=8,
+             already_downcast=False, min_drho=0.5e-3):
     """Calculate dissipation using Thorpe scale"""
 
-    down_inds = select_downcast(p, for_overturn_calcs=True)
+    if already_downcast:
+        # This allows calc_eps to be used for CTD data
+        down_inds = arange_like(p)
+    else:
+        down_inds = select_downcast(p, for_overturn_calcs=True)
+
     finite_inds = np.argwhere(~nan_or_masked(prho)).squeeze()
     inds = np.intersect1d(finite_inds, down_inds)
 
@@ -630,7 +660,7 @@ def calc_eps(p, prho, z, plot_overturns=False, n_smooth_rho=8):
     # Calc L_T and derive dissipation from parameterisation
     L_T[inds], N2[inds] = calc_Lt(
         prho[inds], z[inds], plot_overturns=plot_overturns,
-        n_smooth_rho=n_smooth_rho)
+        n_smooth_rho=n_smooth_rho, min_drho=min_drho)
     eps = (0.8*L_T)**2*N2**(3/2)
 
     return eps, L_T
@@ -1030,14 +1060,9 @@ def quantify_effect_smoothing_freq():
 
 
 if __name__ == '__main__':
-    for cast in np.r_[550]:
+    for cast in np.r_[372]:
         try:
             xyt, data, binned = loadMVP_m1(cast, bin_data=True)
+            # plt.plot(data['prho'], data['z'])
         except IndexError:
             pass
-    # quantify_effect_smoothing_freq()
-    # D = pil('/home/hugke729/PhD/Data/Shipboard/MVP/transects/full_long.p')
-    # rho_interface, gprime, z_interface = two_layer_treatment(D, (48, 58), (0, 80))
-    # second sill: x_sills = (75, 90), x_ranges = (65, 200)
-    # rho_interface, gprime, z_interface = two_layer_treatment(D, (75, 90), (65, 200))
-    # plt.plot(D['cast'], D['eps_zavg'])

@@ -364,7 +364,7 @@ def xf_to_xc(x):
     return (x[:-1] + x[1:])/2
 
 
-def x_to_xkm(x):
+def x_to_km(x):
     return x/1000
 
 

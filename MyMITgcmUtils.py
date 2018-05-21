@@ -398,9 +398,21 @@ def get_grid(run_dir, grid_filename=None, x0=0, y0=0, hFacs=True,
         added_attrs = dict(depth=depth)
         if hFacs:
             # I think this needs work
-            added_attrs['hFacW'] = hfac_mnc('W', x=xp1_slice, z=zslice)
-            added_attrs['hFacS'] = hfac_mnc('S', y=yp1_slice, z=zslice)
-            added_attrs['hFacC'] = hfac_mnc('C', z=zslice)
+            try:
+                added_attrs['hFacW'] = hfac_mnc('W', x=xp1_slice, z=zslice)
+            except KeyError:
+                pass
+
+            try:
+                added_attrs['hFacS'] = hfac_mnc('S', y=yp1_slice, z=zslice)
+            except KeyError:
+                pass
+
+            try:
+                added_attrs['hFacC'] = hfac_mnc('C', z=zslice)
+            except KeyError:
+                pass
+
         g = Grid(dx, dy, dz, x0=x0, y0=y0, added_attrs=added_attrs)
 
     return g

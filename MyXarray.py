@@ -47,6 +47,20 @@ def xa_masked_equal(data_array, value):
     return data_array
 
 
+def xa_masked_greater(data_array, value):
+    """Like np.ma.masked_greater, but for xarray datasets"""
+    is_greater = data_array < value
+    data_array = data_array.where(is_greater)
+    return data_array
+
+
+def xa_masked_less(data_array, value):
+    """Like np.ma.masked_less, but for xarray datasets"""
+    is_less = data_array > value
+    data_array = data_array.where(is_less)
+    return data_array
+
+
 def xa_ptp(data_array, dim=None):
     """Like np.ptp, but for xarray datasets"""
     return data_array.max(dim=dim) - data_array.min(dim=dim)

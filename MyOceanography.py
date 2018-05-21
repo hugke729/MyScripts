@@ -188,7 +188,7 @@ def calc_mode_coeffs(signal, z, sines=True, nmax=5, normed=True):
     return coeffs, recreated_signal
 
 
-def tidal_diss_supercritical_topo(Uvec, b, h, N):
+def tidal_diss_supercritical_topo(Uvec, b, h, N, f_over_omega=0):
     """
     Evaluated the dissipation predicted by Klymak et al. 2010 for constant N
 
@@ -202,6 +202,8 @@ def tidal_diss_supercritical_topo(Uvec, b, h, N):
         Depth in deep water (m)
     N: float
         Constant buoyancy frequency in rad/s
+    f_over_omega: float
+        Value between 0 and 1
 
     Returns
     -------
@@ -215,11 +217,11 @@ def tidal_diss_supercritical_topo(Uvec, b, h, N):
         nc = np.ceil(nc).astype(int)
         return nc
 
-    def F_LY03(U, N, b, h):
+    def F_LY03(U, N, b, h, f_over_omega=f_over_omega):
         """Flux in W/m given in abstract of Llewelyn Smith and Young (2003)"""
         rho0 = 1000
         M = eval_M(b, h)
-        F = (np.pi/4)*rho0*b**2*U**2*N*M
+        F = (np.pi/4)*rho0*b**2*U**2*N*M*np.sqrt(1-f_over_omega**2)
         return F
 
     def eval_M(b, h):
@@ -252,7 +254,7 @@ def tidal_diss_supercritical_topo(Uvec, b, h, N):
     D = np.zeros_like(Uvec)
     for i, U in enumerate(Uvec):
         nc = eval_nc(U, N, b, h)
-        F = F_LY03(U, N, b, h)
+        F = F_LY03(U, N, b, h, f_over_omega=f_over_omega)
         F_n = flux_per_mode(F, b, h)
         D[i] = np.sum(F_n[nc:])
     return D
@@ -260,5 +262,6 @@ def tidal_diss_supercritical_topo(Uvec, b, h, N):
 
 if __name__ == '__main__':
     U = np.r_[1, 2, 4, 8, 12, 16, 24]/100
-    D = tidal_dissipation_supercritical_topography(U, b=200, h=250, N=6.2E-3)
+    D = tidal_diss_supercritical_topo(
+        U, b=200, h=250, N=6.2E-3, f_over_omega=0.99)
     calc_power_law(U, D, True)

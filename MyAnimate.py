@@ -1,11 +1,14 @@
 import matplotlib.pyplot as plt
-from moviepy.video.io.bindings import mplfig_to_npimage
-from moviepy.editor import ImageSequenceClip
+# from moviepy.video.io.bindings import mplfig_to_npimage
+# from moviepy.editor import ImageSequenceClip
 import numpy as np
 
 
 def animate(loop_func, loc='output', fps=1, imin=0, imax=np.inf, istep=1):
     """Use moviepy to create an animation from a for loop
+
+    Deprecated. I didn't know how to use matplotlib's animation module when
+    I wrote this
 
     Inputs
     ------
@@ -64,3 +67,36 @@ def animate(loop_func, loc='output', fps=1, imin=0, imax=np.inf, istep=1):
 
     # Return to interactive plotting
     plt.ion()
+
+
+def clean_up_artists(axis, artist_list):
+    """
+    Remove the artists stored in the artist list belonging to the 'axis'.
+
+    https://stackoverflow.com/a/42201952/5004956
+
+    :param axis: clean artists belonging to these axis
+    :param artist_list: list of artist to remove
+    :return: nothing
+    """
+    for artist in artist_list:
+        try:
+            # fist attempt: try to remove collection of contours for instance
+            while artist.collections:
+                for col in artist.collections:
+                    artist.collections.remove(col)
+                    try:
+                        axis.collections.remove(col)
+                    except ValueError:
+                        pass
+
+                artist.collections = []
+                axis.collections = []
+        except AttributeError:
+            pass
+
+        # second attempt, try to remove the text
+        try:
+            artist.remove()
+        except (AttributeError, ValueError):
+            pass

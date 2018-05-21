@@ -294,3 +294,33 @@ def inrange(x, x_range):
 def rms(x):
     """Root-mean square"""
     return np.sqrt(x.dot(x)/x.size)
+
+
+def shift_slice(slice_in, start=0, stop=0, step_multiple=0):
+    """Create new slice object based on existing slice
+
+    Note: No check to make sure slice_in and other inputs match
+    Also no check for values changing from +ve to -ve or vice versa
+
+    Inputs
+    ------
+    slice_in: slice object
+        Existing slice on which new one will be based
+    start, stop: Integers
+        Amount by which to move start of stop
+    step_multiple: Integer
+        Factor by which to change step
+
+    Returns
+    -------
+    slice_new: slice object
+    """
+    new_start, new_stop, new_step = None, None, None
+    if slice_in.start is not None:
+        new_start = slice_in.start + start
+    if slice_in.stop is not None:
+        new_stop = slice_in.stop + stop
+    if slice_in.step is not None:
+        new_step = slice_in.step*step_multiple
+
+    return slice(new_start, new_stop, new_step)

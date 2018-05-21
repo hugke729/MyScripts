@@ -1,9 +1,9 @@
 import sys
 import re
 import pickle
+import os
 import numpy as np
 import numpy.ma as ma
-import os
 from IPython import get_ipython
 from jupyter_client.blocking import BlockingKernelClient
 

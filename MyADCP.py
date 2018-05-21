@@ -5,6 +5,7 @@ import pickle
 import glob
 import numpy as np
 import numpy.ma as ma
+from scipy.ndimage.filters import gaussian_filter1d
 from pycurrents.adcp.rdiraw import Multiread
 from MyInterp import smooth1d_with_holes
 from MyMVP import flatten_to_line
@@ -363,6 +364,7 @@ def process_adcp(start, end, lim_type='cast', is_long_section=False,
     return data
 
 
-if __name__ == '__main__':
-    data = process_adcp(957, 1052, lim_type='cast', is_long_section=True)
-    plot_section(data, is_long_section=True)
+# if __name__ == '__main__':
+    # data = process_adcp(28.9493, 29.084, lim_type='month_day', is_long_section=True)
+    # plot_section(data, is_long_section=True)
+    # m.plot(data['lon'], data['lat'], latlon=True)

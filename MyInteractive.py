@@ -208,7 +208,7 @@ def decdeg2degdm(dd):
 
 
 def disp_km(ax):
-    """Displays curson position in kilometres"""
+    """Displays cursor position in kilometres"""
 
     def format_coord(x, y):
         xy_str = 'x(km) = {0:6.1f}    y(km) = {1:6.1f}'

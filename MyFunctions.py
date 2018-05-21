@@ -295,11 +295,20 @@ def fit_gaussian(x, y, init_params, print_result=False):
 
 def calc_power_law(x, y, plot_results=False):
     x, y = np.log10(x), np.log10(y)
-    p = np.polyfit(x, y, 1)
+    p, V = np.polyfit(x, y, 1, cov=True)
     slope = p[0]
-    slope_str = 'Slope = ' + '{0:2.2f}'.format(slope)
+    # https://stackoverflow.com/questions/27634270/
+    # how-to-find-error-on-slope-and-intercept-using-numpy-polyfit
+    slope_err = np.sqrt(V[0][0])
+    print(slope_err)
+    p_high, p_low = p.copy(), p.copy()
+    p_high[0] = p[0] + slope_err
+    p_low[0] = p[0] - slope_err
+    slope_str = 'Slope = {0:2.2f} ± {1:2.2f}'.format(slope, slope_err)
     print(slope_str)
     if plot_results:
         plt.plot(x, y, 'ko')
         plt.plot(x, np.polyval(p, x), 'k')
+        plt.plot(x, np.polyval(p_high, x), 'k--')
+        plt.plot(x, np.polyval(p_low, x), 'k--')
         plt.title(slope_str)

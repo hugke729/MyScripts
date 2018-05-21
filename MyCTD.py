@@ -38,8 +38,8 @@ def read_cnv(cast_number):
 def get_xyt(cast_numbers):
     """Get position, location, and depth information from summary
 
-    Returns lat, lon, utc_time, and maximum pressure without having to read
-    all the data in"""
+    Returns lat, lon, utc_time (maybe not), and maximum pressure without
+    having to read all the data in"""
 
     data_loc = '/home/hugke729/PhD/Data/Shipboard/CTD/processed/'
     xyt_file = data_loc + 'xyt_summary.csv'
